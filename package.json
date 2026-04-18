@@ -1,0 +1,8 @@
+{
+  "name": "hxz-backend",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "openai": "^5.12.2"
+  }
+}
