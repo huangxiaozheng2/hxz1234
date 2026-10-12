@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>扫码开始 · 淮安印记</title>
+    <link rel="icon" type="image/png" href="assets/icons/logo.png">
+    <link rel="stylesheet" href="css/main.css">
+    <style>
+        /* ─── Reset & full-screen centering ──────────────────────────── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        html, body {
+            width: 100%; height: 100%;
+            overflow: hidden;
+            font-family: var(--font-sans);
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            /* 与游戏加载页同色 */
+            background-color: var(--loading-bg);
+            background-image:
+                radial-gradient(ellipse at 50% 0%, rgba(201,162,39,0.12) 0%, transparent 60%),
+                url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'%3E%3Cg fill='%23ffffff' fill-opacity='0.04'%3E%3Cpolygon points='40,4 54,20 54,36 40,52 26,36 26,20'/%3E%3Crect x='36' y='0' width='8' height='8'/%3E%3Crect x='36' y='72' width='8' height='8'/%3E%3Crect x='0' y='36' width='8' height='8'/%3E%3Crect x='72' y='36' width='8' height='8'/%3E%3C/g%3E%3C/svg%3E");
+            background-size: auto, 80px 80px;
+            padding: 16px;
+        }
+
+        /* ─── Card ────────────────────────────────────────────────────── */
+        .display-container {
+            background: var(--bg-color);
+            /* 电脑上宽松，手机上紧凑 */
+            padding: clamp(20px, 5vw, 40px) clamp(20px, 6vw, 48px);
+            border-radius: 6px;
+            box-shadow: 0 16px 48px rgba(0,0,0,0.45);
+            text-align: center;
+            width: 100%;
+            max-width: 440px;
+            position: relative;
+        }
+
+        /* 四角装饰 */
+        .display-container::before, .display-container::after {
+            content: '';
+            position: absolute;
+            width: 28px; height: 28px;
+            border: 2px solid var(--primary-color);
+            opacity: 0.7;
+        }
+        .display-container::before { top: 8px; left: 8px; border-right: none; border-bottom: none; }
+        .display-container::after  { bottom: 8px; right: 8px; border-left: none; border-top: none; }
+
+        /* ─── Typography ──────────────────────────────────────────────── */
+        .logo-img {
+            width: clamp(48px, 12vw, 64px);
+            height: auto;
+            margin: 0 auto 8px;
+            display: block;
+            
+            filter: drop-shadow(0 0 6px rgba(201,162,39,0.35));
+        }
+
+        .logo-text {
+            font-family: var(--font-serif);
+            font-size: clamp(1.5rem, 7vw, 2.4rem);
+            font-weight: 700;
+            color: var(--primary-color);
+            letter-spacing: 3px;
+            margin-bottom: 2px;
+            line-height: 1.1;
+        }
+
+        .subtitle {
+            font-family: var(--font-sans);
+            font-size: clamp(0.72rem, 2.5vw, 0.9rem);
+            color: var(--text-muted);
+            letter-spacing: 0.5px;
+            margin-bottom: clamp(14px, 3vw, 24px);
+        }
+
+        /* ─── QR Box ──────────────────────────────────────────────────── */
+        .qr-box {
+            /* 正方形，最大 240px，不会超出屏幕 */
+            width: min(80vw, 240px);
+            height: min(80vw, 240px);
+            margin: 0 auto;
+            background: #fff;
+            padding: 10px;
+            border-radius: 4px;
+            border: 2px solid var(--primary-color);
+            box-shadow: 0 6px 20px rgba(44,21,8,0.15);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .qr-box img, .qr-box svg {
+            width: 100%; height: 100%;
+            object-fit: contain;
+            display: block;
+        }
+
+        .qr-placeholder {
+            width: 100%; height: 100%;
+            background: #f5f0e8;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: var(--text-muted);
+            font-size: clamp(0.65rem, 2vw, 0.8rem);
+            font-weight: 600;
+            letter-spacing: 1px;
+        }
+
+        /* ─── Instruction ─────────────────────────────────────────────── */
+        .instruction {
+            margin-top: clamp(12px, 3vw, 20px);
+            font-size: clamp(0.7rem, 2.2vw, 0.85rem);
+            font-family: var(--font-sans);
+            color: var(--primary-color);
+            font-weight: 700;
+            letter-spacing: 4px;
+            animation: pulse-text 2.4s ease-in-out infinite;
+        }
+
+        /* ─── Animations ──────────────────────────────────────────────── */
+        @keyframes pulse-text {
+            0%, 100% { opacity: 0.6; }
+            50%       { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="display-container">
+        <img class="logo-img" src="assets/icons/logo.png" alt="淮安印记">
+        <div class="logo-text" id="qr-title">淮安印记</div>
+        <div class="subtitle" id="qr-subtitle">正在加载……</div>
+
+        <div class="qr-box" id="qr-box">
+            <div class="qr-placeholder" id="qr-placeholder">二维码</div>
+        </div>
+
+        <div class="instruction" id="qr-instruction">扫码开始游戏</div>
+    </div>
+
+    <script src="js/vendor/js-yaml.min.js"></script>
+    <script src="js/vendor/qrcode.js"></script>
+    <script>
+        // 二维码默认指向同目录下的 index.html；flow.yaml 里填了 qr_screen.game_url 就用那个网址
+        function renderQR(url) {
+            const qr = qrcode(0, 'M');
+            qr.addData(url);
+            qr.make();
+            const box = document.getElementById('qr-box');
+            box.innerHTML = qr.createSvgTag({ cellSize: 8, margin: 2, scalable: true });
+            box.title = url;
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const defaultUrl = new URL('index.html', location.href).href;
+            try {
+                const response = await fetch('flow.yaml');
+                const config = jsyaml.load(await response.text());
+                const s = config.qr_screen || {};
+                document.getElementById('qr-title').textContent       = s.title       || '淮安印记';
+                document.getElementById('qr-subtitle').textContent    = s.subtitle    || '';
+                document.getElementById('qr-instruction').textContent = s.instruction || '扫码开始游戏';
+                renderQR(s.game_url || defaultUrl);
+            } catch (error) {
+                console.error('无法加载 flow.yaml', error);
+                document.getElementById('qr-subtitle').textContent = '';
+                renderQR(defaultUrl);
+            }
+        });
+    </script>
+</body>
+</html>

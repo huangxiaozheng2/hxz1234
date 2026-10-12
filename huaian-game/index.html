@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>淮安印记</title>
+
+    <!-- Favicon & App Icons -->
+    <link rel="icon" type="image/png" href="assets/icons/logo.png">
+    <link rel="apple-touch-icon" href="assets/icons/logo.png">
+
+    <!-- 分享卡片 -->
+    <meta property="og:type"        content="website">
+    <meta property="og:title"       content="淮安印记">
+    <meta property="og:description" content="运河之都 · 淮安文旅互动之旅">
+    <meta property="og:image"       content="assets/icons/logo.png">
+    <meta property="og:image:alt"   content="淮安印记">
+
+    <meta name="description" content="运河之都 · 淮安文旅互动之旅：跟着小印走过周恩来故里、河下古镇、清江浦和淮扬美食，集齐印记赢取徽章。">
+    <meta name="theme-color"  content="#7a2421">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+
+    <!-- js-yaml：本地引入，国内网络也能正常加载 -->
+    <script src="js/vendor/js-yaml.min.js"></script>
+</head>
+<body>
+
+    <!-- SVG 图标：页面内统一用 <use href="#id"> 引用 -->
+    <svg id="sprite-defs" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" style="display:none">
+        <!-- 吉祥物「小印」：一枚朱红色的淮安老印章 -->
+        <symbol id="icon-mascot" viewBox="0 0 60 60">
+            <rect x="4" y="4" width="52" height="52" rx="9" fill="#9e2b25" stroke="#d4a73a" stroke-width="2"/>
+            <rect x="9" y="9" width="42" height="42" rx="5" fill="none" stroke="#f6e7c8" stroke-width="1.6"/>
+            <!-- 眼睛 -->
+            <circle cx="22" cy="26" r="3.2" fill="#f6e7c8"/>
+            <circle cx="38" cy="26" r="3.2" fill="#f6e7c8"/>
+            <circle cx="22.8" cy="25.2" r="1.1" fill="#9e2b25"/>
+            <circle cx="38.8" cy="25.2" r="1.1" fill="#9e2b25"/>
+            <!-- 腮红 -->
+            <ellipse cx="17" cy="33" rx="3.2" ry="2" fill="#e8807a" opacity="0.8"/>
+            <ellipse cx="43" cy="33" rx="3.2" ry="2" fill="#e8807a" opacity="0.8"/>
+            <!-- 笑嘴 -->
+            <path d="M24 34 Q30 40 36 34" fill="none" stroke="#f6e7c8" stroke-width="2.2" stroke-linecap="round"/>
+            <!-- 印钮上的小祥云 -->
+            <path d="M24 15 q3 -4 6 0 q3 -4 6 0" fill="none" stroke="#d4a73a" stroke-width="1.8" stroke-linecap="round"/>
+        </symbol>
+        <!-- 声音开 -->
+        <symbol id="icon-sound" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+            <path class="sound-wave-1" d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+            <path class="sound-wave-2" d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+        </symbol>
+        <!-- 声音关 -->
+        <symbol id="icon-mute" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+            <line x1="23" y1="9" x2="17" y2="15"/>
+            <line x1="17" y1="9" x2="23" y2="15"/>
+        </symbol>
+        <!-- 分享 -->
+        <symbol id="icon-share" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+            <polyline points="16 6 12 2 8 6"/>
+            <line x1="12" y1="2" x2="12" y2="15"/>
+        </symbol>
+    </svg>
+
+    <div id="app">
+        <!-- 背景暗纹 -->
+        <div id="bg-pattern"></div>
+
+        <!-- 横屏提示 -->
+        <div id="orientation-warning">
+            <span style="font-size:3rem">&#8635;</span>
+            <p>请把手机竖过来，继续游戏。</p>
+        </div>
+
+        <!-- 1. 加载页 -->
+        <div id="screen-loading" class="screen active">
+            <div class="pulse-logo">
+                <img id="ui-loading-logo" src="assets/icons/logo.png" alt="淮安印记">
+            </div>
+            <p id="ui-loading-text" class="loading-text">正在加载……</p>
+            <div class="progress-bar"><div class="progress-fill"></div></div>
+            <div class="load-error" id="ui-load-error">
+                <p id="ui-load-error-text">页面好像走丢了，请重新扫一下二维码吧！</p>
+                <button id="btn-load-retry" class="btn">重试</button>
+            </div>
+        </div>
+
+        <!-- 2. 首页（幕布转场） -->
+        <div id="screen-intro" class="screen">
+            <div class="intro-landing" id="intro-landing">
+                <div class="intro-content">
+                    <h1 id="ui-intro-title" class="title"></h1>
+                    <h2 id="ui-intro-subtitle" class="subtitle"></h2>
+                    <p id="ui-intro-text" class="intro-text"></p>
+                    <button id="btn-start" class="btn breathe-effect"></button>
+                </div>
+            </div>
+
+            <div class="curtain curtain-left" id="curtain-left"></div>
+            <div class="curtain curtain-right" id="curtain-right"></div>
+        </div>
+
+        <!-- 开场故事和地图共用的背景 -->
+        <div id="prologue-map-bg" class="prologue-map-bg"></div>
+
+        <!-- 2.5 开场故事 -->
+        <div id="screen-prologue" class="screen">
+            <div class="prologue-mascot" id="prologue-mascot">
+                <svg width="60" height="60" aria-hidden="true"><use href="#icon-mascot"></use></svg>
+            </div>
+
+            <div class="prologue-lines" id="prologue-lines"></div>
+
+            <div class="prologue-actions">
+                <button id="btn-prologue-go" class="btn prologue-cta">出发！</button>
+                <button id="btn-prologue-skip" class="btn-skip">跳过</button>
+            </div>
+        </div>
+
+        <!-- 2.75 旅程地图 -->
+        <div id="screen-map" class="screen">
+            <h2 id="ui-map-title" class="map-title">你的淮安之旅</h2>
+            <div class="map-image-wrapper">
+                <div class="map-wood-frame" id="map-wood-frame">
+                    <img id="ui-map-image" src="assets/images/map.png" alt="旅程地图" class="map-image">
+                </div>
+            </div>
+            <div class="map-actions">
+                <button id="btn-map-go" class="btn breathe-effect">开始探索</button>
+            </div>
+        </div>
+
+        <!-- 3. 展区故事 -->
+        <div id="screen-story" class="screen">
+            <header class="story-header">
+                <img id="ui-story-logo" src="assets/icons/logo.png" alt="淮安印记" class="small-logo">
+                <span class="zone-name" id="ui-zone-name"></span>
+                <button id="btn-audio" class="btn-audio-toggle" title="开/关声音" aria-label="开/关声音">
+                    <svg class="icon-sound" viewBox="0 0 24 24"><use href="#icon-sound"></use></svg>
+                    <svg class="icon-mute"  viewBox="0 0 24 24" style="display:none"><use href="#icon-mute"></use></svg>
+                </button>
+            </header>
+
+            <main class="story-center">
+                <div class="parallax-container" id="slide-image-container">
+                    <img src="" alt="" class="parallax-image" id="ui-slide-image">
+                </div>
+                <div class="story-info">
+                    <p id="ui-slide-text" class="classic-text"></p>
+                </div>
+            </main>
+
+            <footer class="story-footer">
+                <div class="nav-dots" id="ui-nav-dots"></div>
+                <button class="swipe-hint" id="btn-story-next">向左滑动或点这里，去下一站 <span class="arrow">&rarr;</span></button>
+            </footer>
+        </div>
+
+        <!-- 3.5 挑战入口 -->
+        <div id="screen-challenge" class="screen">
+            <div class="challenge-landing" id="challenge-landing">
+                <div class="challenge-content">
+                    <h1 id="ui-challenge-title" class="title"></h1>
+                    <p id="ui-challenge-desc" class="intro-text"></p>
+                    <button id="btn-start-quiz" class="btn breathe-effect"></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. 答题（从底部滑出） -->
+        <div id="screen-quiz" class="screen overlay-screen">
+            <div class="quiz-container">
+                <header class="quiz-header">
+                    <button id="btn-close-quiz" class="btn-close" aria-label="关闭">&times;</button>
+                    <div class="quiz-progress">
+                        <div class="progress-fill" id="ui-quiz-progress"></div>
+                    </div>
+                </header>
+                <main class="quiz-main">
+                    <h2 id="ui-quiz-question" class="question-text"></h2>
+                    <div id="ui-quiz-options" class="options-container"></div>
+                </main>
+            </div>
+        </div>
+
+        <!-- 5. 结束页 -->
+        <div id="screen-endscreen" class="screen end-screen">
+            <div class="polaroid-cluster" id="ui-polaroid-cluster"></div>
+
+            <div class="end-container">
+                <div class="badge-stage">
+                    <img class="wreath-bg" src="assets/icons/laurel-wreath.svg" alt="">
+                    <div class="badge-half badge-left" id="badge-left"></div>
+                    <div class="badge-half badge-right" id="badge-right"></div>
+                    <div class="badge-full" id="badge-full"></div>
+                    <div class="badge-glow" id="badge-glow"></div>
+                </div>
+
+                <div class="end-score" id="ui-end-score"></div>
+
+                <h1 class="end-title" id="ui-end-title"></h1>
+                <p class="end-message" id="ui-end-message"></p>
+
+                <div class="end-actions">
+                    <button id="btn-share" class="btn btn-share breathe-effect">
+                        <svg class="share-icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-share"></use></svg>
+                        <span id="btn-share-text"></span>
+                    </button>
+                    <button id="btn-replay" class="btn-icon btn-replay"></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 离开开场故事时飞走的吉祥物 -->
+    <div id="mascot-fly" aria-hidden="true">
+        <svg width="52" height="52" viewBox="0 0 60 60"><use href="#icon-mascot"></use></svg>
+    </div>
+
+    <!-- 答题解析弹窗：放在 #app 外面，避免被父元素的 transform 裁切 -->
+    <div id="quiz-popup" class="quiz-popup">
+        <div class="popup-content">
+            <h3 id="ui-popup-title" class="popup-title"></h3>
+            <p id="ui-popup-message" class="popup-message"></p>
+            <p id="ui-popup-explanation" class="popup-explanation"></p>
+        </div>
+    </div>
+
+    <script src="js/game.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

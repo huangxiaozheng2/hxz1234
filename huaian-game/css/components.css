@@ -1,0 +1,900 @@
+/* css/components.css — Supplementary UI components */
+/* 基础样式在 main.css 中 */
+/* 本文件补充：答题浮层、徽章拼合、提示条、横屏提示等组件 */
+
+/* ── Orientation Lock ──────────────────────────────────────────────────────── */
+#orientation-warning {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: var(--alternate-color);
+    color: var(--primary-color);
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    gap: 20px;
+    font-family: var(--font-serif);
+    font-size: 1.3rem;
+    text-align: center;
+    padding: 40px;
+}
+
+/* ── Toast notification ────────────────────────────────────────────────────── */
+.toast {
+    position: fixed;
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: rgba(0,0,0,0.85);
+    color: var(--secondary-color);
+    padding: 12px 24px;
+    border-radius: 25px;
+    font-size: 0.95rem;
+    opacity: 0;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    pointer-events: none;
+    z-index: 1000;
+    border: 1px solid var(--secondary-color);
+    white-space: nowrap;
+}
+.toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+/* ── Quiz Overlay (Slide Up) ───────────────────────────────────────────────── */
+#screen-quiz {
+    z-index: 30;
+    background: rgba(30, 0, 0, 0.97);
+    border-radius: 24px 24px 0 0;
+    top: auto;
+    bottom: 0;
+    height: 80%;
+    transform: translateY(100%);
+    opacity: 1;
+    pointer-events: none;
+    transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    overflow: hidden;
+}
+#screen-quiz.active {
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+.quiz-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 20px;
+}
+
+.quiz-header {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.btn-close {
+    align-self: flex-end;
+    background: none;
+    border: none;
+    color: var(--bg-color);
+    font-size: 2rem;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0 10px;
+}
+
+.quiz-progress {
+    width: 100%;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.quiz-progress .progress-fill {
+    height: 100%;
+    background: var(--gold-color);
+    width: 0%;
+    transition: width 0.3s ease;
+}
+
+.quiz-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 30px;
+}
+
+.question-text {
+    font-family: var(--font-serif);
+    font-size: 1.4rem;
+    color: var(--bg-color);
+    text-align: center;
+    line-height: 1.5;
+}
+
+.options-container {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.btn-option {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: var(--bg-color);
+    padding: 15px 20px;
+    border-radius: 12px;
+    font-size: 1.1rem;
+    font-family: var(--font-sans);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: left;
+}
+
+.btn-option:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: var(--gold-color);
+}
+
+.btn-option.correct {
+    background: rgba(46, 125, 50, 0.8); /* Green glow */
+    border-color: #4caf50;
+    color: #fff;
+    box-shadow: 0 0 15px rgba(76, 175, 80, 0.5);
+    animation: upbeatBounce 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+}
+
+@keyframes upbeatBounce {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.08); }
+    70% { transform: scale(0.96); }
+    100% { transform: scale(1); }
+}
+
+.btn-option.incorrect {
+    background: rgba(198, 40, 40, 0.8); /* Red flash */
+    border-color: #f44336;
+    color: #fff;
+    animation: fastShake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+}
+
+@keyframes fastShake {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-6px); }
+    40%, 80% { transform: translateX(6px); }
+}
+
+/* ── Quiz Popup (Explanation) ──────────────────────────────────────────────── */
+.quiz-popup {
+    position: fixed;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-200%);
+    width: calc(100% - 24px);
+    max-width: 456px;
+    background: linear-gradient(160deg, #d4edda 0%, #ffffff 60%);
+    border: 1px solid rgba(76, 175, 80, 0.3);
+    border-radius: 16px;
+    padding: 10px 14px 9px;
+    transition: transform 0.45s cubic-bezier(0.34, 1.4, 0.64, 1);
+    z-index: 9999;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+    text-align: left;
+    overflow: hidden;
+}
+
+.quiz-popup.incorrect {
+    background: linear-gradient(160deg, #fde8e8 0%, #ffffff 60%);
+    border-color: rgba(244, 67, 54, 0.25);
+}
+
+.quiz-popup.show {
+    transform: translateX(-50%) translateY(0);
+}
+
+.popup-title {
+    font-family: var(--font-sans);
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin-bottom: 4px;
+}
+
+.quiz-popup.correct .popup-title { color: #2e7d32; }
+.quiz-popup.incorrect .popup-title { color: #c62828; }
+
+.popup-message {
+    font-family: var(--font-sans);
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #111;
+    margin-bottom: 3px;
+}
+
+.popup-explanation {
+    font-family: var(--font-sans);
+    font-size: 0.8rem;
+    color: #333;
+    line-height: 1.4;
+    margin: 0;
+}
+
+
+
+/* ── Confetti ──────────────────────────────────────────────────────────────── */
+.confetti {
+    position: fixed;
+    width: 8px;
+    height: 8px;
+    top: -10px;
+    z-index: 9998;
+    pointer-events: none;
+    border-radius: 2px;
+}
+
+@keyframes fall {
+    0% {
+        transform: translateY(0) rotate(0deg);
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(100vh) rotate(720deg);
+        opacity: 0;
+    }
+}
+
+/* ── Swipe Down to Close Quiz ──────────────────────────────────────────────── */
+.quiz-container {
+    touch-action: pan-y; /* Allow vertical scrolling/swiping */
+}
+
+/* ── Quiz Animations ───────────────────────────────────────────────────────── */
+.slide-up-enter {
+    animation: slideUp 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.slide-down-exit {
+    animation: slideDown 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes slideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+}
+
+@keyframes slideDown {
+    from { transform: translateY(0); }
+    to { transform: translateY(100%); }
+}
+
+.quiz-main.fade-out {
+    animation: fadeOutLeft 0.4s ease forwards;
+}
+
+.quiz-main.slide-in {
+    animation: slideInRight 0.4s ease forwards;
+}
+
+@keyframes fadeOutLeft {
+    from { opacity: 1; transform: translateX(0); }
+    to { opacity: 0; transform: translateX(-50px); }
+}
+
+@keyframes slideInRight {
+    from { opacity: 0; transform: translateX(50px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+/* ── End Screen ─────────────────────────────────────────────────────────────── */
+#screen-endscreen {
+    z-index: 15;
+    /* 顶部与宣纸底色一致，65% 以下渐变为深色，看不出接缝 */
+    background: linear-gradient(
+        180deg,
+        var(--bg-color)   0%,
+        var(--bg-color)  18%,
+        #d9b990          40%,
+        #b07850          65%,
+        var(--loading-bg) 100%
+    );
+    opacity: 1 !important;
+    transform: translateY(100%);
+    transition: transform 1s cubic-bezier(0.22, 1, 0.36, 1);
+    overflow: hidden;
+}
+#screen-endscreen.active {
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+.end-container {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    width: 50%;
+    margin: 0 auto;
+    padding: 40px 0;
+    gap: 16px;
+    text-align: center;
+    z-index: 2;
+}
+
+/* ── Wreath behind badge ──────────────────────────────────────────────────── */
+.badge-stage {
+    position: relative;
+    width: 160px;
+    height: 160px;
+    margin-bottom: 8px;
+}
+.wreath-bg {
+    position: absolute;
+    top: 40%; left: 50%;
+    width: 180px; height: 180px;
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 0;
+    filter: drop-shadow(0 2px 8px rgba(201,162,39,0.3))
+            sepia(1) saturate(3) hue-rotate(-10deg) brightness(0.9);
+    z-index: 0;
+    pointer-events: none;
+}
+.wreath-bg.animate {
+    animation: wreathReveal 0.7s 0.1s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+@keyframes wreathReveal {
+    0%   { transform: translate(-50%,-50%) scale(0) rotate(-30deg); opacity: 0; }
+    100% { transform: translate(-50%,-50%) scale(1) rotate(0deg); opacity: 0.7; }
+}
+
+.badge-half {
+    position: absolute;
+    top: 10px;
+    width: 70px;
+    height: 140px;
+    overflow: hidden;
+    opacity: 0;
+    z-index: 2;
+}
+
+.badge-half img {
+    width: 140px;
+    height: 140px;
+}
+
+.badge-left {
+    left: 0;
+    clip-path: inset(0 50% 0 0);
+}
+
+.badge-right {
+    right: 0;
+    clip-path: inset(0 0 0 50%);
+}
+
+.badge-left img { transform: translateX(0); }
+.badge-right img { transform: translateX(-70px); }
+
+/* Fly in from edges */
+.badge-left.animate {
+    animation: flyFromLeft 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+.badge-right.animate {
+    animation: flyFromRight 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes flyFromLeft {
+    from { transform: translateX(-120px); opacity: 0; }
+    to   { transform: translateX(0); opacity: 1; }
+}
+@keyframes flyFromRight {
+    from { transform: translateX(120px); opacity: 0; }
+    to   { transform: translateX(0); opacity: 1; }
+}
+
+/* Full badge (appears after halves merge) */
+.badge-full {
+    position: absolute;
+    top: 10px; left: 10px;
+    width: 140px;
+    height: 140px;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 3;
+}
+.badge-full img {
+    width: 100%;
+    height: 100%;
+}
+.badge-full.animate {
+    animation: badgeBounce 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+@keyframes badgeBounce {
+    0%   { opacity: 0; transform: scale(0.3); }
+    50%  { opacity: 1; transform: scale(1.15); }
+    70%  { transform: scale(0.9); }
+    100% { opacity: 1; transform: scale(1); }
+}
+
+/* Glow flash on merge */
+.badge-glow {
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 200px; height: 200px;
+    transform: translate(-50%, -50%) scale(0);
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(201,162,39,0.7) 0%, transparent 70%);
+    opacity: 0;
+    pointer-events: none;
+}
+.badge-glow.animate {
+    animation: glowFlash 0.6s ease-out forwards;
+}
+@keyframes glowFlash {
+    0%   { transform: translate(-50%,-50%) scale(0); opacity: 1; }
+    100% { transform: translate(-50%,-50%) scale(1.5); opacity: 0; }
+}
+
+/* Score display */
+.end-score {
+    font-family: var(--font-sans);
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--alternate-color);
+    letter-spacing: 1px;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.3);
+}
+
+/* Text */
+.end-title {
+    font-family: var(--font-serif);
+    font-size: 1.4rem;
+    color: #fff;
+    line-height: 1.3;
+    text-shadow: 0 1px 6px rgba(0,0,0,0.4);
+}
+.end-message {
+    font-family: var(--font-sans);
+    font-size: 0.85rem;
+    color: rgba(255,255,255,0.9);
+    line-height: 1.5;
+    max-width: 280px;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.3);
+}
+
+/* Action buttons */
+.end-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    max-width: 240px;
+    margin-top: 10px;
+}
+
+/* Share button — blue Facebook-style gradient */
+.btn-share {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: linear-gradient(135deg, #b8342c 0%, #d4a73a 100%) !important;
+    color: #fff !important;
+    border: none;
+    box-shadow: 0 4px 14px rgba(158,43,37,0.45);
+    width: 100%;
+}
+.btn-share:hover {
+    background: linear-gradient(135deg, #9e2b25 0%, #b8902e 100%) !important;
+}
+.share-icon {
+    flex-shrink: 0;
+}
+
+/* Replay button — high contrast on dark gradient bg */
+.btn-replay {
+    color: rgba(255,255,255,0.95) !important;
+    border-color: rgba(255,255,255,0.5) !important;
+}
+.btn-replay:hover {
+    background: rgba(255,255,255,0.15) !important;
+    color: #fff !important;
+}
+
+.end-actions .btn-icon {
+    width: 100%;
+    justify-content: center;
+}
+
+/* ── Polaroid photos (pinned notes) ─────────────────────────────────────── */
+.polaroid-cluster {
+    position: absolute;
+    bottom: 10px;
+    left: 0;
+    width: 100%;
+    height: 50%;
+    pointer-events: none;
+    z-index: 1;
+    overflow: hidden;
+}
+
+.polaroid {
+    position: absolute;
+    width: 80px;
+    background: #fff;
+    padding: 4px 4px 18px;
+    border-radius: 2px;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.2);
+    transform: rotate(var(--rot, 0deg)) translateY(60px);
+    opacity: 0;
+}
+.polaroid.animate {
+    animation: polaroidDrop 0.6s var(--delay, 0s) cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+@keyframes polaroidDrop {
+    from { opacity: 0; transform: rotate(var(--rot, 0deg)) translateY(60px); }
+    to   { opacity: 0.85; transform: rotate(var(--rot, 0deg)) translateY(0); }
+}
+
+.polaroid img {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+.polaroid-label {
+    display: block;
+    font-family: var(--font-serif);
+    font-size: 0.45rem;
+    color: var(--text-muted);
+    text-align: center;
+    margin-top: 3px;
+}
+
+/* Positioning */
+.p-left      { left: 8px; }
+.p-right     { right: 8px; }
+.p-left:not(.p-low):not(.p-left-low)   { top: 10%; }
+.p-right:not(.p-low):not(.p-right-low) { top: 25%; }
+.p-low       { bottom: 15%; top: auto; }
+.p-left-low  { left: 8px;  bottom: 15%; top: auto; }
+.p-right-low { right: 8px; bottom: 15%; top: auto; }
+
+/* 飞走的吉祥物：离开开场故事时飞向左上角 */
+#mascot-fly {
+    position: fixed;
+    z-index: 100;
+    pointer-events: none;
+    opacity: 0;              /* 默认隐藏 */
+    filter: drop-shadow(0 0 8px rgba(201, 162, 39, 0.5));
+    /* 起始位置由 JS 设置 */
+}
+#mascot-fly.fly-start {
+    opacity: 1;
+    transition: none;        /* 先停在原吉祥物的位置 */
+}
+#mascot-fly.fly-go {
+    opacity: 0.85;
+    transition:
+        top    0.45s cubic-bezier(0.55, 0, 0.45, 1),
+        left   0.45s cubic-bezier(0.55, 0, 0.45, 1),
+        transform 0.45s cubic-bezier(0.55, 0, 0.45, 1);
+}
+
+/* ── Shared Background for Prologue & Map ───────────────────────────────── */
+.prologue-map-bg {
+    position: fixed;
+    inset: 0;
+    z-index: 4;
+    background: linear-gradient(
+        160deg,
+        rgba(44, 21, 8, 0.96) 0%,
+        rgba(90, 35, 35, 0.94) 50%,
+        rgba(44, 21, 8, 0.96) 100%
+    );
+    background-color: #2c1508;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s ease;
+}
+.prologue-map-bg.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+.prologue-map-bg.fade-out {
+    opacity: 0;
+    transition: opacity 0.5s ease;
+}
+
+/* ── Prologue Screen ─────────────────────────────────────────────────────────── */
+#screen-prologue {
+    z-index: 5;
+    background: transparent;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    padding: 28px 24px 0;   /* 底部为 0，按钮栏自带内边距 */
+    overflow: hidden;        /* 永远不出现滚动条 */
+    gap: 0;
+}
+
+/* Curtain fade-out for prologue exit */
+#screen-prologue.fade-out {
+    opacity: 0 !important;
+    transition: opacity 0.5s ease !important;
+}
+
+/* Mascot — floating/drifting animation */
+.prologue-mascot {
+    flex-shrink: 0;
+    margin-bottom: 18px;
+    animation: mascot-float 4.5s ease-in-out infinite;
+    filter: drop-shadow(0 0 8px rgba(201, 162, 39, 0.45));
+}
+.prologue-mascot.wiggle {
+    animation: mascot-wiggle 0.65s ease-in-out forwards;
+}
+
+/* Text lines container — no scroll, clips overflow gracefully */
+.prologue-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    width: 100%;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* Individual line */
+.prologue-line {
+    font-family: var(--font-serif);
+    font-size: 0.77em;
+    line-height: 1.65;
+    color: #f5e9c8;
+    opacity: 0;
+    transform: translateY(18px);
+    transition: opacity 0.9s ease, transform 0.9s ease;
+}
+.prologue-line.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* 吉祥物名字高亮 */
+.dau-name {
+    color: var(--gold-color);
+    font-style: italic;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+    text-shadow: 0 0 10px rgba(201, 162, 39, 0.65);
+}
+
+/* Typewriter cursor */
+.tw-cursor {
+    display: inline-block;
+    width: 2px;
+    background: #f5e9c8;
+    margin-left: 2px;
+    vertical-align: text-bottom;
+    height: 1em;
+    animation: tw-blink 0.7s step-end infinite;
+}
+
+/* 按钮栏：主按钮 + 跳过，贴底居中 */
+.prologue-actions {
+    flex-shrink: 0;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 14px 0 24px;
+    gap: 6px;
+}
+
+/* 主按钮：出发！ */
+.prologue-cta {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s ease;
+    background: var(--primary-color);
+    color: #f5e9c8;
+    border: none;
+    padding: 13px 44px;
+    border-radius: 32px;
+    font-size: 1rem;
+    font-family: var(--font-serif);
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    box-shadow: 0 0 20px rgba(181, 118, 58, 0.5);
+    animation: none;
+}
+.prologue-cta.visible {
+    opacity: 1;
+    pointer-events: auto;
+    animation: breathe 2.2s ease-in-out infinite;
+}
+
+/* Skip button */
+.btn-skip {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    font-family: var(--font-sans);
+    cursor: pointer;
+    padding: 6px 14px;
+    opacity: 0.55;
+    transition: opacity 0.2s, color 0.2s;
+}
+.btn-skip:hover, .btn-skip:active {
+    opacity: 1;
+    color: var(--primary-color);
+}
+
+/* Keyframes */
+@keyframes mascot-float {
+    0%   { transform: translateX(0px)   translateY(0px)  rotate(-4deg); }
+    20%  { transform: translateX(10px)  translateY(-6px) rotate(3deg);  }
+    45%  { transform: translateX(16px)  translateY(2px)  rotate(6deg);  }
+    70%  { transform: translateX(5px)   translateY(-4px) rotate(1deg);  }
+    100% { transform: translateX(0px)   translateY(0px)  rotate(-4deg); }
+}
+@keyframes mascot-wiggle {
+    0%   { transform: rotate(0deg); }
+    15%  { transform: rotate(-14deg) scale(1.1); }
+    35%  { transform: rotate(11deg)  scale(1.1); }
+    55%  { transform: rotate(-8deg); }
+    75%  { transform: rotate(5deg);  }
+    100% { transform: rotate(0deg); }
+}
+@keyframes tw-blink {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0; }
+}
+
+/* ── 旅程地图页 ─────────────────────────────────────── */
+#screen-map {
+    z-index: 5;
+    background: transparent;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 24px 20px;
+    gap: 18px;
+    overflow: hidden;
+}
+
+/* Fade-out for map screen exit */
+#screen-map.fade-out {
+    opacity: 0 !important;
+    transition: opacity 0.5s ease !important;
+}
+
+.map-title {
+    font-family: var(--font-serif);
+    color: #f5e9c8;
+    font-size: 1.2rem;
+    letter-spacing: 0.5px;
+    text-align: center;
+    opacity: 0;
+    transform: translateY(-12px);
+    flex-shrink: 0;
+}
+.map-title.visible {
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity 0.5s ease 0.3s, transform 0.5s ease 0.3s;
+}
+
+.map-image-wrapper {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 0;
+    overflow: visible;   /* allow frame shadow to bleed out */
+    padding: 6px 18px;
+}
+
+/* ── Wooden Frame ─────────────────────────────────────────────────────────── */
+.map-wood-frame {
+    position: relative;
+    /* Frame thickness: slightly thicker bottom mimics real picture frames */
+    padding: 14px 14px 20px;
+    border-radius: 3px;
+
+    /* Wood grain: layered gradients — grain lines over warm base coat */
+    background:
+        repeating-linear-gradient(
+            87deg,
+            transparent 0px,            transparent 3px,
+            rgba(0, 0, 0, 0.030) 3px,  rgba(0, 0, 0, 0.030) 5px
+        ),
+        repeating-linear-gradient(
+            93deg,
+            transparent 0px,              transparent 6px,
+            rgba(255, 255, 255, 0.05) 6px, rgba(255, 255, 255, 0.05) 8px
+        ),
+        linear-gradient(
+            175deg,
+            #d2924e 0%,
+            #8b5520 14%,
+            #b07030 36%,
+            #7a4018 56%,
+            #a06528 74%,
+            #c8813c 90%,
+            #9e5c22 100%
+        );
+
+    /* 3-D bevel: top-left highlight, bottom-right shadow, outer drop */
+    box-shadow:
+        0 14px 50px rgba(0, 0, 0, 0.70),
+        0  4px 14px rgba(0, 0, 0, 0.45),
+        inset  3px  3px 7px rgba(240, 185, 90, 0.42),
+        inset -3px -3px 7px rgba(0,   0,   0, 0.52);
+
+    /* Fade-in animation state (JS adds .visible) */
+    opacity: 0;
+    transform: scale(0.92);
+}
+.map-wood-frame.visible {
+    opacity: 1;
+    transform: scale(1);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+/* Outer rim hairline highlight */
+.map-wood-frame::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 3px;
+    box-shadow: inset 0 0 0 1px rgba(255, 200, 100, 0.22);
+    pointer-events: none;
+    z-index: 2;
+}
+
+/* Inner rabbet shadow — the groove the image sits in */
+.map-wood-frame::before {
+    content: '';
+    position: absolute;
+    inset: 14px 14px 20px;
+    box-shadow:
+        inset 0 2px 10px rgba(0, 0, 0, 0.72),
+        inset 0 0  4px rgba(0, 0, 0, 0.55);
+    pointer-events: none;
+    z-index: 1;
+}
+
+.map-image {
+    display: block;
+    width: 100%;
+    max-height: 55vh;
+    object-fit: contain;
+    border-radius: 1px;   /* sharp edge inside the wooden frame */
+    position: relative;
+    z-index: 0;
+}
+
+.map-actions {
+    flex-shrink: 0;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    padding: 8px 0 12px;
+    opacity: 0;
+}
+.map-actions.visible {
+    opacity: 1;
+    transition: opacity 0.5s ease 0.6s;
+}
