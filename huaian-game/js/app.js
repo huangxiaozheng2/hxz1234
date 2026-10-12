@@ -1,19 +1,46 @@
-// js/app.js —— 入口与状态机
-// 流程：加载 → 首页 → 开场故事 → 地图 → 展区故事 → 挑战 → 答题 → 结束
+// js/app.js —— 入口与页面流程
+// 加载 → 首页 → 开场故事 → 闯关地图 ⇄（站点故事 → 小游戏 → 盖章）× 4
+//      → 印记大挑战（限时答题）→ 结束页（称号 + 分享海报）
 
 // ─── 全局状态 ────────────────────────────────────────────────────────────────
 const AppState = {
-    config: null,        // 解析后的 flow.yaml
-    currentZoneIndex: 0  // 当前展区，从 0 开始
+    config: null,
+    station: null,       // 当前站点配置
+    game: null,          // 当前小游戏实例
+    progress: { stations: {} },   // { stations: { id: { stars, score } } }
+    quizResult: null,
 };
+
+const STORE_KEY = 'huaian-yinji-v2';
+
+const Store = {
+    load() {
+        try {
+            const raw = localStorage.getItem(STORE_KEY);
+            const p = raw ? JSON.parse(raw) : null;
+            if (p && p.stations) AppState.progress = p;
+        } catch (e) { /* 隐私模式等情况下读不到，忽略 */ }
+    },
+    save() {
+        try { localStorage.setItem(STORE_KEY, JSON.stringify(AppState.progress)); } catch (e) { /* 忽略 */ }
+    },
+    clear() {
+        AppState.progress = { stations: {} };
+        try { localStorage.removeItem(STORE_KEY); } catch (e) { /* 忽略 */ }
+    },
+};
+
+const starsOf = id => (AppState.progress.stations[id] || {}).stars || 0;
+const stationsDone = () => AppState.config.stations.filter(s => starsOf(s.id) > 0).length;
 
 // ─── 页面切换 ────────────────────────────────────────────────────────────────
 const Screens = {
     loading:   document.getElementById('screen-loading'),
     intro:     document.getElementById('screen-intro'),
     prologue:  document.getElementById('screen-prologue'),
-    map:       document.getElementById('screen-map'),
-    story:     document.getElementById('screen-story'),
+    hub:       document.getElementById('screen-hub'),
+    station:   document.getElementById('screen-station'),
+    game:      document.getElementById('screen-game'),
     challenge: document.getElementById('screen-challenge'),
     quiz:      document.getElementById('screen-quiz'),
     end:       document.getElementById('screen-endscreen'),
@@ -26,40 +53,34 @@ const Screens = {
     }
 };
 
-// ─── 加载页 ──────────────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+
+// ─── 加载 ────────────────────────────────────────────────────────────────────
 function runLoadingScreen() {
     const progressFill = document.querySelector('#screen-loading .progress-fill');
-    const errorBox     = document.getElementById('ui-load-error');
+    const errorBox     = $('ui-load-error');
     errorBox.classList.remove('visible');
     progressFill.style.width = '0%';
     let progress = 0;
 
     const tick = setInterval(() => {
-        progress += 20;
+        progress += 25;
         progressFill.style.width = progress + '%';
-
         if (progress >= 100) {
             clearInterval(tick);
             loadConfig().then(() => {
                 setTimeout(() => {
                     Screens.show(Screens.intro);
-                    applyTheme(AppState.config);
                     renderIntro(AppState.config);
-                }, 400);
+                }, 300);
             }).catch(err => {
                 console.error(err);
                 errorBox.classList.add('visible');
             });
         }
-    }, 300);
+    }, 220);
 }
 
-function bindLoadRetry() {
-    const btn = document.getElementById('btn-load-retry');
-    if (btn) btn.addEventListener('click', runLoadingScreen);
-}
-
-// ─── 读取 flow.yaml ─────────────────────────────────────────────────────────
 function loadConfig() {
     return fetch('flow.yaml')
         .then(r => {
@@ -67,105 +88,83 @@ function loadConfig() {
             return r.text();
         })
         .then(text => {
-            AppState.config = jsyaml.load(text);
-            applyLoadingScreen(AppState.config);
-            preloadImages(AppState.config);
+            const config = jsyaml.load(text);
+            AppState.config = config;
+            SFX.init(config);
+            applyTheme(config);
+            const errEl = $('ui-load-error-text');
+            if (config.qr_screen && config.qr_screen.error_message) errEl.textContent = config.qr_screen.error_message;
+            preloadImages(config);
         });
 }
 
-// ─── 图片预加载 ─────────────────────────────────────────────────────────────
 function preloadImages(config) {
-    if (!config) return;
-    const urls = [];
-
-    if (config.intro_screen && config.intro_screen.background_image)
-        urls.push(config.intro_screen.background_image);
-    if (config.map_screen && config.map_screen.background_image)
-        urls.push(config.map_screen.background_image);
-
-    if (config.zones) {
-        config.zones.forEach(zone => {
-            if (zone.thumbnail) urls.push(zone.thumbnail);
-            if (zone.slides) zone.slides.forEach(slide => { if (slide.image) urls.push(slide.image); });
-        });
-    }
-
-    if (config.quiz_game && config.quiz_game.challenge_screen && config.quiz_game.challenge_screen.image)
-        urls.push(config.quiz_game.challenge_screen.image);
-    if (config.endscreen && config.endscreen.badge_image)
-        urls.push(config.endscreen.badge_image);
-
-    urls.forEach(url => { const img = new Image(); img.src = url; });
-}
-
-// ─── 首页与幕布转场 ──────────────────────────────────────────────────────────
-function applyLoadingScreen(config) {
-    if (!config) return;
-    const ls = config.loading_screen;
-    if (!ls) return;
-    const logoEl = document.getElementById('ui-loading-logo');
-    if (logoEl && ls.logo) logoEl.src = ls.logo;
-    const errEl = document.getElementById('ui-load-error-text');
-    if (errEl && config.qr_screen && config.qr_screen.error_message)
-        errEl.textContent = config.qr_screen.error_message;
+    const urls = [config.intro_screen.background_image, config.map_screen.background_image];
+    config.stations.forEach(s => urls.push(s.image));
+    (config.endscreen.ranks || []).forEach(r => urls.push(r.badge));
+    urls.filter(Boolean).forEach(url => { const img = new Image(); img.src = url; });
 }
 
 function applyTheme(config) {
-    if (!config || !config.project || !config.project.theme) return;
+    const t = config.project && config.project.theme;
+    if (!t) return;
     const root = document.documentElement;
-    const t = config.project.theme;
     if (t.secondary_color) root.style.setProperty('--gold-color',      t.secondary_color);
     if (t.primary_color)   root.style.setProperty('--alternate-color', t.primary_color);
 }
 
+// ─── 首页 ────────────────────────────────────────────────────────────────────
 function renderIntro(config) {
-    if (!config) return;
     const s = config.intro_screen;
-    document.getElementById('ui-intro-title').textContent    = s.title || '';
-    document.getElementById('ui-intro-subtitle').textContent = s.subtitle || '';
-    document.getElementById('ui-intro-text').textContent     = s.intro_text || '';
-    document.getElementById('btn-start').textContent         = s.start_button || '开始';
-
-    const bg = s.background_image || 'assets/images/intro-bg.jpg';
-    const landing = document.getElementById('intro-landing');
-    if (landing) landing.style.backgroundImage = 'url(' + bg + ')';
+    const hasProgress = stationsDone() > 0;
+    $('ui-intro-title').textContent    = s.title || '';
+    $('ui-intro-subtitle').textContent = s.subtitle || '';
+    $('ui-intro-text').textContent     = s.intro_text || '';
+    $('btn-start').textContent         = hasProgress ? (s.continue_button || '继续') : (s.start_button || '开始');
+    const restart = $('btn-restart');
+    restart.textContent = s.restart_link || '从头开始';
+    restart.hidden = !hasProgress;
+    $('intro-landing').style.backgroundImage = 'url(' + (s.background_image || 'assets/images/intro-bg.jpg') + ')';
 }
 
-function bindCurtainTransition() {
-    const btnStart = document.getElementById('btn-start');
-    btnStart.addEventListener('click', () => {
-        // 在用户点击时解锁语音朗读（iOS 要求必须由用户操作触发）
-        Narrator.unlock();
-
-        // 1. 合上幕布
-        Screens.intro.classList.add('closing');
-
-        // 2. 幕布合上后，在下面准备好开场故事
+function openCurtain(next) {
+    Screens.intro.classList.add('closing');
+    setTimeout(() => {
+        next();
+        Screens.intro.classList.remove('closing');
+        Screens.intro.classList.add('open');
         setTimeout(() => {
-            const sharedBg = document.getElementById('prologue-map-bg');
-            if (sharedBg) sharedBg.classList.add('active');
-
-            Screens.prologue.classList.add('active');
-
-            // 3. 拉开幕布
-            Screens.intro.classList.remove('closing');
-            Screens.intro.classList.add('open');
-
-            // 4. 清理首页，开始讲故事
-            setTimeout(() => {
-                Screens.intro.classList.remove('active');
-                const config = AppState.config;
-                if (config && config.prologue_screen) {
-                    if (config.prologue_screen.ambient_audio) {
-                        startAmbient(config.prologue_screen.ambient_audio);
-                    }
-                    runPrologueAnimation(config);
-                } else {
-                    renderStory(config, 0);
-                    Screens.show(Screens.story);
-                }
-            }, 1000);
+            Screens.intro.classList.remove('active', 'open');
         }, 1000);
+    }, 1000);
+}
+
+function bindIntro() {
+    $('btn-start').addEventListener('click', () => {
+        // 在用户点击时解锁声音和语音（手机浏览器要求）
+        SFX.unlock();
+        Narrator.unlock();
+        const config = AppState.config;
+        if (stationsDone() > 0) {
+            openCurtain(() => {
+                renderHub();
+                Screens.hub.classList.add('active');
+                requestAnimationFrame(fitHubMap);
+            });
+            return;
+        }
+        openCurtain(() => {
+            $('prologue-map-bg').classList.add('active');
+            Screens.prologue.classList.add('active');
+            setTimeout(() => {
+                if (config.prologue_screen.ambient_audio) startAmbient(config.prologue_screen.ambient_audio);
+                runPrologueAnimation(config);
+            }, 1000);
+        });
+    });
+    $('btn-restart').addEventListener('click', () => {
+        Store.clear();
+        renderIntro(AppState.config);
     });
 }
 
@@ -191,9 +190,9 @@ function startAmbient(src) {
     } catch (e) { /* 没有音频文件就跳过 */ }
 }
 
-function stopAmbient(callback) {
+function stopAmbient() {
     clearInterval(ambientFadeInt);
-    if (!ambientAudio) { if (callback) callback(); return; }
+    if (!ambientAudio) return;
     let vol = ambientAudio.volume;
     ambientFadeInt = setInterval(() => {
         vol = Math.max(vol - 0.03, 0);
@@ -201,18 +200,17 @@ function stopAmbient(callback) {
         if (vol <= 0) {
             clearInterval(ambientFadeInt);
             if (ambientAudio) { ambientAudio.pause(); ambientAudio = null; }
-            if (callback) callback();
         }
     }, 50);
 }
 
 function escapeHTML(s) {
-    return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-// 把文字切成片段 [{text, highlight}]，吉祥物的名字会被高亮
+// 把文字切成片段，吉祥物的名字会被高亮
 function parseSegments(text) {
-    const name = (AppState.config && AppState.config.project && AppState.config.project.mascot_name) || '';
+    const name = (AppState.config.project && AppState.config.project.mascot_name) || '';
     if (!name) return [{ text, highlight: false }];
     const parts = [];
     let last = 0, idx;
@@ -231,21 +229,16 @@ function buildHighlightedHTML(text) {
     ).join('');
 }
 
-// 打字机效果：一个字一个字地出现，名字打完整后才高亮
 function typewriterEffect(el, text, speed, onComplete) {
     const segments = parseSegments(text);
     const cursor   = '<span class="tw-cursor"></span>';
     let i = 0;
-
     function renderPartial(len) {
-        let html = '';
-        let pos  = 0;
+        let html = '', pos = 0;
         for (const seg of segments) {
             const segEnd = pos + seg.text.length;
             if (len >= segEnd) {
-                html += seg.highlight
-                    ? '<span class="dau-name">' + escapeHTML(seg.text) + '</span>'
-                    : escapeHTML(seg.text);
+                html += seg.highlight ? '<span class="dau-name">' + escapeHTML(seg.text) + '</span>' : escapeHTML(seg.text);
             } else if (len > pos) {
                 html += escapeHTML(seg.text.slice(0, len - pos));
                 break;
@@ -256,7 +249,6 @@ function typewriterEffect(el, text, speed, onComplete) {
         }
         return html;
     }
-
     const timer = setInterval(() => {
         if (i < text.length) {
             i++;
@@ -271,185 +263,203 @@ function typewriterEffect(el, text, speed, onComplete) {
 }
 
 function runPrologueAnimation(config) {
-    if (!config || !config.prologue_screen) return;
     const ps        = config.prologue_screen;
     const lines     = ps.lines || [];
-    const container = document.getElementById('prologue-lines');
-    if (!container) return;
+    const container = $('prologue-lines');
     container.innerHTML = '';
-
-    const btnGo   = document.getElementById('btn-prologue-go');
-    const btnSkip = document.getElementById('btn-prologue-skip');
-    if (btnGo && ps.cta_button)    btnGo.textContent   = ps.cta_button;
-    if (btnSkip && ps.skip_button) btnSkip.textContent = ps.skip_button;
+    $('btn-prologue-go').textContent   = ps.cta_button || '出发！';
+    $('btn-prologue-skip').textContent = ps.skip_button || '跳过';
 
     lines.forEach(() => {
         const el = document.createElement('p');
         el.className = 'prologue-line';
         container.appendChild(el);
     });
-    const lineEls     = container.querySelectorAll('.prologue-line');
-    let   currentLine = 0;
+    const lineEls = container.querySelectorAll('.prologue-line');
+    let current = 0;
 
     function showNextLine() {
-        if (currentLine >= lines.length) {
-            showPrologueCTA();
+        if (current >= lines.length) {
+            $('btn-prologue-go').classList.add('visible');
             return;
         }
-        const lineData = lines[currentLine];
-        const el       = lineEls[currentLine];
+        const line = lines[current];
+        const el   = lineEls[current];
         el.classList.add('visible');
-
-        // 最后一句时，吉祥物晃一晃
-        if (currentLine === lines.length - 1) {
-            const mascot = document.getElementById('prologue-mascot');
-            if (mascot) {
-                mascot.classList.remove('wiggle');
-                void mascot.offsetWidth;
-                mascot.classList.add('wiggle');
-            }
+        if (current === lines.length - 1) {
+            const mascot = $('prologue-mascot');
+            mascot.classList.remove('wiggle');
+            void mascot.offsetWidth;
+            mascot.classList.add('wiggle');
         }
-
-        if (lineData.effect === 'typewriter') {
-            typewriterEffect(el, lineData.text, 80, () => {
-                currentLine++;
-                const t = setTimeout(showNextLine, 700);
-                prologueTimers.push(t);
+        if (line.effect === 'typewriter') {
+            typewriterEffect(el, line.text, 80, () => {
+                current++;
+                prologueTimers.push(setTimeout(showNextLine, 700));
             });
         } else {
-            el.innerHTML = buildHighlightedHTML(lineData.text);
-            currentLine++;
-            // 中文阅读按字数留时间，长句停久一点
-            const delay = (currentLine === lines.length) ? 500 : Math.min(1100 + lineData.text.length * 25, 2600);
-            const t = setTimeout(showNextLine, delay);
-            prologueTimers.push(t);
+            el.innerHTML = buildHighlightedHTML(line.text);
+            current++;
+            const delay = (current === lines.length) ? 500 : Math.min(1100 + line.text.length * 25, 2600);
+            prologueTimers.push(setTimeout(showNextLine, delay));
         }
     }
-
-    const t0 = setTimeout(showNextLine, 500);
-    prologueTimers.push(t0);
-}
-
-function showPrologueCTA() {
-    const cta = document.getElementById('btn-prologue-go');
-    if (cta) cta.classList.add('visible');
+    prologueTimers.push(setTimeout(showNextLine, 500));
 }
 
 function leavePrologue() {
     prologueTimers.forEach(t => { clearTimeout(t); clearInterval(t); });
     prologueTimers = [];
 
-    // 1. 在吉祥物当前位置放一个“替身”
-    const mascotEl = document.getElementById('prologue-mascot');
-    const flyEl    = document.getElementById('mascot-fly');
-    if (mascotEl && flyEl) {
-        const rect = mascotEl.getBoundingClientRect();
-        flyEl.style.top       = rect.top  + 'px';
-        flyEl.style.left      = rect.left + 'px';
-        flyEl.style.transform = 'translate(0, 0)';
-        flyEl.classList.add('fly-start');
-        mascotEl.style.opacity = '0';
+    const mascotEl = $('prologue-mascot');
+    const flyEl    = $('mascot-fly');
+    const rect = mascotEl.getBoundingClientRect();
+    flyEl.style.top       = rect.top  + 'px';
+    flyEl.style.left      = rect.left + 'px';
+    flyEl.style.transform = 'translate(0, 0)';
+    flyEl.classList.add('fly-start');
+    mascotEl.style.opacity = '0';
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+        flyEl.classList.add('fly-go');
+        flyEl.style.top       = '-70px';
+        flyEl.style.left      = '-70px';
+        flyEl.style.transform = 'translate(0, 0) scale(0.5)';
+    }));
 
-        // 2. 替身飞向左上角
-        requestAnimationFrame(() => requestAnimationFrame(() => {
-            flyEl.classList.add('fly-go');
-            flyEl.style.top       = '-70px';
-            flyEl.style.left      = '-70px';
-            flyEl.style.transform = 'translate(0, 0) scale(0.5)';
-        }));
-    }
-
-    // 3. 只淡出故事文字，背景保留给地图页
-    const screen = document.getElementById('screen-prologue');
-    if (screen) screen.classList.add('fade-out');
-    stopAmbient(() => {});
+    Screens.prologue.classList.add('fade-out');
+    $('prologue-map-bg').classList.add('fade-out');
+    stopAmbient();
 
     setTimeout(() => {
-        if (screen) screen.classList.remove('active', 'fade-out');
-        if (mascotEl) mascotEl.style.opacity = '';
-        renderMapScreen(AppState.config);
-        Screens.map.classList.add('active');
-
+        Screens.prologue.classList.remove('active', 'fade-out');
+        $('prologue-map-bg').classList.remove('active', 'fade-out');
+        mascotEl.style.opacity = '';
+        showHub();
         setTimeout(() => {
-            if (flyEl) {
-                flyEl.style.transition = 'opacity 0.4s ease';
-                flyEl.style.opacity    = '0';
-                setTimeout(() => {
-                    flyEl.classList.remove('fly-start', 'fly-go');
-                    flyEl.style.transition = '';
-                    flyEl.style.opacity    = '';
-                }, 400);
-            }
+            flyEl.style.transition = 'opacity 0.4s ease';
+            flyEl.style.opacity    = '0';
+            setTimeout(() => {
+                flyEl.classList.remove('fly-start', 'fly-go');
+                flyEl.style.transition = '';
+                flyEl.style.opacity    = '';
+            }, 400);
         }, 800);
     }, 500);
 }
 
 function bindPrologueButtons() {
-    const btnGo   = document.getElementById('btn-prologue-go');
-    const btnSkip = document.getElementById('btn-prologue-skip');
-    if (btnGo)   btnGo.addEventListener('click',   leavePrologue);
-    if (btnSkip) btnSkip.addEventListener('click', leavePrologue);
+    $('btn-prologue-go').addEventListener('click', leavePrologue);
+    $('btn-prologue-skip').addEventListener('click', leavePrologue);
 }
 
-// ─── 旅程地图 ────────────────────────────────────────────────────────────────
-function renderMapScreen(config) {
-    if (!config || !config.map_screen) return;
+// ─── 印章（DOM 版）─────────────────────────────────────────────────────────
+function sealHTML(chars) {
+    return [...String(chars || '').slice(0, 4)].map(c => `<i>${escapeHTML(c)}</i>`).join('');
+}
+
+function starsHTML(n, total = 3) {
+    let h = '';
+    for (let i = 0; i < total; i++) {
+        h += `<svg class="star ${i < n ? 'on' : ''}" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-star"></use></svg>`;
+    }
+    return h;
+}
+
+// ─── 闯关地图 ────────────────────────────────────────────────────────────────
+function showHub() {
+    renderHub();
+    Screens.show(Screens.hub);
+    requestAnimationFrame(fitHubMap);
+}
+
+function fitHubMap() {
+    const wrap = document.querySelector('.hub-map-wrap');
+    const map  = $('ui-hub-map');
+    if (!wrap || !map) return;
+    const ratio = 1024 / 1536;
+    const w = wrap.clientWidth, h = wrap.clientHeight;
+    let mw = w, mh = w / ratio;
+    if (mh > h) { mh = h; mw = h * ratio; }
+    map.style.width  = mw + 'px';
+    map.style.height = mh + 'px';
+}
+
+function renderHub() {
+    const config = AppState.config;
     const ms = config.map_screen;
-    const titleEl  = document.getElementById('ui-map-title');
-    const imgEl    = document.getElementById('ui-map-image');
-    const btnEl    = document.getElementById('btn-map-go');
-    const actions  = document.querySelector('.map-actions');
+    $('ui-hub-title').textContent = ms.title || '';
+    $('ui-hub-map-img').src = ms.background_image;
 
-    if (titleEl && ms.title) titleEl.textContent = ms.title;
-    if (btnEl && ms.cta_button) btnEl.textContent = ms.cta_button;
-    if (imgEl && ms.background_image) imgEl.src = ms.background_image;
+    const map = $('ui-hub-map');
+    map.querySelectorAll('.hub-spot').forEach(el => el.remove());
 
-    requestAnimationFrame(() => {
-        const frameEl = document.getElementById('map-wood-frame');
-        if (frameEl)  frameEl.classList.add('visible');
-        if (titleEl)  titleEl.classList.add('visible');
-        if (actions)  actions.classList.add('visible');
+    const nextIndex = config.stations.findIndex(s => starsOf(s.id) === 0);
+    const allDone = nextIndex === -1;
+
+    config.stations.forEach((s, i) => {
+        const stars = starsOf(s.id);
+        const state = stars > 0 ? 'done' : i === nextIndex ? 'open' : 'locked';
+        const b = document.createElement('button');
+        b.className = 'hub-spot ' + state;
+        b.style.left = s.position.x + '%';
+        b.style.top  = s.position.y + '%';
+        b.setAttribute('aria-label', `${s.name}（${state === 'done' ? stars + ' 星' : state === 'open' ? '可进入' : '未解锁'}）`);
+        if (state === 'done') {
+            b.innerHTML = `<span class="seal mini">${sealHTML(s.stamp)}</span><span class="spot-stars">${starsHTML(stars)}</span>`;
+        } else if (state === 'locked') {
+            b.innerHTML = `<svg class="lock" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-lock"></use></svg>`;
+        } else {
+            b.innerHTML = `<span class="spot-ring"></span><span class="spot-go">进入</span>`;
+        }
+        b.addEventListener('click', () => {
+            if (state === 'locked') {
+                GameEngine.showToast(`先完成「${config.stations[nextIndex].name}」才能解锁这里`);
+                return;
+            }
+            openStation(s);
+        });
+        map.appendChild(b);
     });
-}
 
-function leaveMapScreen() {
-    const screen   = document.getElementById('screen-map');
-    const sharedBg = document.getElementById('prologue-map-bg');
+    // 终点：印记大挑战
+    const fin = document.createElement('button');
+    fin.className = 'hub-spot final ' + (allDone ? 'open' : 'locked');
+    fin.style.left = ms.final_position.x + '%';
+    fin.style.top  = ms.final_position.y + '%';
+    fin.setAttribute('aria-label', ms.final_label + (allDone ? '' : '（集齐四枚印章后解锁）'));
+    fin.innerHTML = allDone
+        ? `<span class="spot-ring big"></span><span class="spot-go">挑战</span>`
+        : `<svg class="lock" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-lock"></use></svg>`;
+    fin.addEventListener('click', () => {
+        if (!allDone) {
+            GameEngine.showToast('集齐四枚印章，才能开启印记大挑战');
+            return;
+        }
+        renderChallenge();
+        Screens.show(Screens.challenge);
+    });
+    map.appendChild(fin);
 
-    if (screen)   screen.classList.add('fade-out');
-    if (sharedBg) sharedBg.classList.add('fade-out');
+    // 顶部印章栏
+    const bar = $('ui-hub-stamps');
+    bar.innerHTML = config.stations.map(s =>
+        `<span class="seal tiny ${starsOf(s.id) ? 'on' : ''}" title="${escapeHTML(s.name)}">${sealHTML(s.stamp)}</span>`
+    ).join('');
 
-    setTimeout(() => {
-        if (screen)   screen.classList.remove('active', 'fade-out');
-        if (sharedBg) sharedBg.classList.remove('active', 'fade-out');
-        renderStory(AppState.config, 0);
-        Screens.show(Screens.story);
-    }, 500);
-}
-
-function bindMapButton() {
-    const btn = document.getElementById('btn-map-go');
-    if (btn) btn.addEventListener('click', leaveMapScreen);
+    $('ui-hub-hint').textContent = allDone
+        ? '四枚印章集齐了！点地图最上方，开启印记大挑战。'
+        : `已集 ${stationsDone()}/${config.stations.length} 枚印章 · ${ms.hint || ''}`;
 }
 
 // ─── 语音讲解 ────────────────────────────────────────────────────────────────
-// 展区配置了 audio（mp3）就播放音频；没有的话，用手机自带的中文语音朗读文字。
 const Narrator = {
     _voice: null,
-
-    supported() {
-        return 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
-    },
-
+    supported() { return 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window; },
     _pickVoice() {
         if (!this.supported()) return null;
         const voices = window.speechSynthesis.getVoices();
-        return voices.find(v => /zh[-_]CN/i.test(v.lang))
-            || voices.find(v => /^zh/i.test(v.lang))
-            || null;
+        return voices.find(v => /zh[-_]CN/i.test(v.lang)) || voices.find(v => /^zh/i.test(v.lang)) || null;
     },
-
-    // 必须在用户点击时调用一次，iOS 才允许之后自动朗读
     unlock() {
         if (!this.supported()) return;
         try {
@@ -458,7 +468,6 @@ const Narrator = {
             window.speechSynthesis.speak(u);
         } catch (e) { /* 忽略 */ }
     },
-
     speak(text) {
         this.stop();
         if (!this.supported() || !text) return;
@@ -466,225 +475,271 @@ const Narrator = {
             if (!this._voice) this._voice = this._pickVoice();
             const u = new SpeechSynthesisUtterance(text);
             u.lang = 'zh-CN';
-            u.rate = 1;
             if (this._voice) u.voice = this._voice;
             window.speechSynthesis.speak(u);
         } catch (e) { /* 忽略 */ }
     },
-
     stop() {
         if (!this.supported()) return;
         try { window.speechSynthesis.cancel(); } catch (e) { /* 忽略 */ }
-    }
+    },
 };
-
 if (Narrator.supported()) {
     window.speechSynthesis.onvoiceschanged = () => { Narrator._voice = Narrator._pickVoice(); };
 }
 
-// ─── 展区故事 ────────────────────────────────────────────────────────────────
 let currentAudio = null;
-let isMuted      = false; // 全局静音状态，切换展区时保持不变
 
 function stopNarration() {
-    if (currentAudio) {
-        currentAudio.pause();
-        currentAudio = null;
-    }
+    if (currentAudio) { currentAudio.pause(); currentAudio = null; }
     Narrator.stop();
 }
 
-function playNarration(slide) {
+function playNarration(station) {
     stopNarration();
-    if (isMuted || !slide) return;
-    if (slide.audio) {
-        currentAudio = new Audio(slide.audio);
-        currentAudio.play().catch(() => { /* 浏览器拦截自动播放，用户可以点喇叭按钮 */ });
+    if (isMuted || !station) return;
+    if (station.audio) {
+        currentAudio = new Audio(station.audio);
+        currentAudio.play().catch(() => {});
     } else {
-        Narrator.speak(slide.text);
+        Narrator.speak(station.story);
     }
-}
-
-function renderStory(config, zoneIndex) {
-    if (!config) return;
-    AppState.currentZoneIndex = zoneIndex;
-    const zone  = config.zones[zoneIndex];
-    const slide = zone.slides[0];
-
-    document.getElementById('ui-zone-name').textContent  = zone.name;
-    document.getElementById('ui-slide-text').textContent = slide.text;
-
-    const img = document.getElementById('ui-slide-image');
-    img.src = slide.image;
-    img.alt = zone.name;
-
-    playNarration(slide);
-
-    // 底部圆点导航
-    const dotsContainer = document.getElementById('ui-nav-dots');
-    dotsContainer.innerHTML = '';
-    config.zones.forEach((_, i) => {
-        const dot = document.createElement('button');
-        dot.className = 'dot' + (i === zoneIndex ? ' active' : '');
-        dot.setAttribute('aria-label', '第 ' + (i + 1) + ' 站');
-        dot.addEventListener('click', () => navigateTo(config, i));
-        dotsContainer.appendChild(dot);
-    });
-
-    // 最后一站时，提示文字改成去挑战
-    const nextBtn = document.getElementById('btn-story-next');
-    if (nextBtn) {
-        const last = zoneIndex === config.zones.length - 1;
-        nextBtn.innerHTML = (last ? '走完啦！去完成印记挑战' : '向左滑动或点这里，去下一站')
-            + ' <span class="arrow">&rarr;</span>';
-    }
-
-    syncAudioButton();
-}
-
-function navigateTo(config, index) {
-    const total = config.zones.length;
-    if (index < 0) return;
-    if (index >= total) {
-        stopNarration();
-        renderChallenge(config);
-        Screens.show(Screens.challenge);
-        return;
-    }
-    renderStory(config, index);
 }
 
 function syncAudioButton() {
-    const btn = document.getElementById('btn-audio');
-    if (!btn) return;
-    const iconSound = btn.querySelector('.icon-sound');
-    const iconMute  = btn.querySelector('.icon-mute');
-
-    if (isMuted) {
-        iconSound.style.display = 'none';
-        iconMute.style.display  = 'block';
-        btn.classList.remove('is-playing');
-        btn.classList.add('is-muted');
-    } else {
-        iconSound.style.display = 'block';
-        iconMute.style.display  = 'none';
-        btn.classList.add('is-playing');
-        btn.classList.remove('is-muted');
-    }
+    const btn = $('btn-audio');
+    btn.querySelector('.icon-sound').style.display = isMuted ? 'none' : 'block';
+    btn.querySelector('.icon-mute').style.display  = isMuted ? 'block' : 'none';
+    btn.classList.toggle('is-playing', !isMuted);
+    btn.classList.toggle('is-muted', isMuted);
 }
 
-function bindAudioToggle() {
-    document.getElementById('btn-audio').addEventListener('click', () => {
+// ─── 站点故事 ────────────────────────────────────────────────────────────────
+function openStation(station) {
+    AppState.station = station;
+    $('ui-station-name').textContent  = station.name;
+    $('ui-station-story').textContent = station.story;
+    const img = $('ui-station-image');
+    img.src = station.image;
+    img.alt = station.name;
+    $('btn-station-play').textContent = `开始小游戏：${station.game.title}`;
+    syncAudioButton();
+    Screens.show(Screens.station);
+    playNarration(station);
+}
+
+function bindStation() {
+    $('btn-station-back').addEventListener('click', () => { stopNarration(); showHub(); });
+    $('btn-station-play').addEventListener('click', () => { stopNarration(); startGame(AppState.station); });
+    $('btn-audio').addEventListener('click', () => {
         isMuted = !isMuted;
-        if (isMuted) {
-            stopNarration();
-        } else {
-            const config = AppState.config;
-            playNarration(config.zones[AppState.currentZoneIndex].slides[0]);
-        }
+        if (isMuted) stopNarration(); else playNarration(AppState.station);
         syncAudioButton();
     });
 }
 
-function bindSwipeNavigation() {
-    const storyEl = document.getElementById('screen-story');
-    let touchStartX = 0;
-    let touchStartY = 0;
+// ─── 小游戏 ──────────────────────────────────────────────────────────────────
+function startGame(station) {
+    if (AppState.game) AppState.game.destroy();
+    const cfg = station.game;
+    const factory = window.MiniGames && MiniGames[cfg.type];
+    if (!factory) { GameEngine.showToast('这个小游戏还没准备好'); return; }
 
-    storyEl.addEventListener('touchstart', e => {
-        touchStartX = e.touches[0].clientX;
-        touchStartY = e.touches[0].clientY;
-    }, { passive: true });
+    const stage = $('ui-game-stage');
+    stage.innerHTML = '';
+    stage.className = 'game-stage game-' + cfg.type;
+    $('ui-game-title').textContent = cfg.title;
+    $('ui-game-hud').textContent = '';
+    $('ui-howto-title').textContent = cfg.title;
+    $('ui-howto-text').textContent = cfg.howto || '';
+    $('ui-game-howto').hidden = false;
+    $('ui-game-result').hidden = true;
+    $('ui-game-countdown').hidden = true;
+    Screens.show(Screens.game);
 
-    storyEl.addEventListener('touchend', e => {
-        const dx = e.changedTouches[0].clientX - touchStartX;
-        const dy = e.changedTouches[0].clientY - touchStartY;
-        if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy)) return;
-        const config = AppState.config;
-        const cur    = AppState.currentZoneIndex;
-        if (dx < 0) navigateTo(config, cur + 1);
-        else        navigateTo(config, cur - 1);
-    }, { passive: true });
-
-    const nextBtn = document.getElementById('btn-story-next');
-    if (nextBtn) {
-        nextBtn.addEventListener('click', () => {
-            navigateTo(AppState.config, AppState.currentZoneIndex + 1);
-        });
-    }
-
-    // 键盘左右键
-    document.addEventListener('keydown', e => {
-        if (!Screens.story.classList.contains('active')) return;
-        const config = AppState.config;
-        const cur    = AppState.currentZoneIndex;
-        if (e.key === 'ArrowRight') navigateTo(config, cur + 1);
-        if (e.key === 'ArrowLeft')  navigateTo(config, cur - 1);
+    AppState.game = factory.create(stage, cfg, {
+        setHud: text => { $('ui-game-hud').textContent = text; },
+        finish: res => showGameResult(station, res),
     });
 }
 
-// ─── 挑战入口与答题 ──────────────────────────────────────────────────────────
-function renderChallenge(config) {
-    if (!config || !config.quiz_game || !config.quiz_game.challenge_screen) return;
-    const s = config.quiz_game.challenge_screen;
-    document.getElementById('ui-challenge-title').textContent = s.title;
-    document.getElementById('ui-challenge-desc').textContent  = s.description;
-    document.getElementById('btn-start-quiz').textContent     = s.start_button;
+function runCountdown(done) {
+    const el = $('ui-game-countdown');
+    let n = 3;
+    el.hidden = false;
+    const step = () => {
+        if (n === 0) {
+            el.textContent = '开始！';
+            el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
+            SFX.tone(1180, 0.15, { vol: 0.2 });
+            setTimeout(() => { el.hidden = true; done(); }, 450);
+            return;
+        }
+        el.textContent = n;
+        el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
+        SFX.tone(700, 0.08, { vol: 0.15 });
+        n--;
+        setTimeout(step, 650);
+    };
+    step();
+}
 
-    const landing = document.getElementById('challenge-landing');
-    if (landing && s.image) {
-        landing.style.backgroundImage = 'url(' + s.image + ')';
+function showGameResult(station, res) {
+    const prev = AppState.progress.stations[station.id] || { stars: 0, score: 0 };
+    const isBest = res.stars > prev.stars || (res.stars === prev.stars && res.score > prev.score);
+    if (isBest) {
+        AppState.progress.stations[station.id] = { stars: res.stars, score: res.score };
+        Store.save();
+    }
+
+    const passed = res.stars > 0;
+    const seal = $('ui-result-seal');
+    seal.innerHTML = sealHTML(station.stamp);
+    seal.className = 'seal' + (passed ? '' : ' faded');
+    $('ui-result-stars').innerHTML = starsHTML(res.stars);
+    $('ui-result-title').textContent = res.title;
+    $('ui-result-detail').textContent = res.detail + (passed && !isBest ? '（保留了你之前更好的成绩）' : '');
+    const next = $('btn-result-next');
+    const retry = $('btn-result-retry');
+    if (passed) {
+        next.textContent = '盖章成功，返回地图';
+        retry.textContent = res.stars < 3 ? '再玩一次，争取更多星' : '再玩一次';
+    } else {
+        next.textContent = '再试一次';
+        retry.textContent = '先回地图';
+    }
+    next.dataset.action = passed ? 'hub' : 'retry';
+    retry.dataset.action = passed ? 'retry' : 'hub';
+
+    $('ui-game-result').hidden = false;
+    if (passed) {
+        seal.classList.add('slam');
+        setTimeout(() => { SFX.stamp(); if (navigator.vibrate) navigator.vibrate(60); }, 380);
+        setTimeout(() => SFX.play('chime_sfx'), 700);
+    } else {
+        SFX.play('incorrect_sfx');
     }
 }
 
-function closeQuiz() {
-    Screens.quiz.classList.add('slide-down-exit');
-    setTimeout(() => {
-        Screens.quiz.classList.remove('active');
-        Screens.quiz.classList.remove('slide-down-exit');
-    }, 500);
+function leaveGame(action) {
+    if (AppState.game) { AppState.game.destroy(); AppState.game = null; }
+    if (action === 'retry') startGame(AppState.station);
+    else showHub();
 }
 
-function bindChallengeTransition() {
-    const btnStartQuiz = document.getElementById('btn-start-quiz');
-    if (!btnStartQuiz) return;
+function bindGame() {
+    $('btn-howto-go').addEventListener('click', () => {
+        SFX.unlock();
+        $('ui-game-howto').hidden = true;
+        runCountdown(() => { if (AppState.game) AppState.game.start(); });
+    });
+    $('btn-game-quit').addEventListener('click', () => leaveGame('hub'));
+    $('btn-result-next').addEventListener('click', e => leaveGame(e.currentTarget.dataset.action));
+    $('btn-result-retry').addEventListener('click', e => leaveGame(e.currentTarget.dataset.action));
+}
 
-    btnStartQuiz.addEventListener('click', () => {
-        if (AppState.config) {
-            GameEngine.init(AppState.config);
-            GameEngine.startQuiz();
+// ─── 印记大挑战 ──────────────────────────────────────────────────────────────
+function renderChallenge() {
+    const s = AppState.config.quiz_game.challenge_screen;
+    $('ui-challenge-title').textContent = s.title;
+    $('ui-challenge-desc').textContent  = s.description;
+    $('btn-start-quiz').textContent     = s.start_button;
+}
+
+function bindChallenge() {
+    $('btn-start-quiz').addEventListener('click', () => {
+        GameEngine.init(AppState.config, showEnd);
+        GameEngine.startQuiz();
+    });
+    $('btn-challenge-back').addEventListener('click', showHub);
+}
+
+// ─── 结束页 ──────────────────────────────────────────────────────────────────
+function computeResult(quiz) {
+    const config = AppState.config;
+    const stations = config.stations.map(s => ({ ...s, ...(AppState.progress.stations[s.id] || { stars: 0, score: 0 }) }));
+    const starSum = stations.reduce((a, s) => a + s.stars, 0);
+    const starMax = stations.length * 3;
+    const ratio = 0.6 * (starSum / starMax) + 0.4 * (quiz.correct / quiz.total);
+    const ranks = (config.endscreen.ranks || []).slice().sort((a, b) => b.min - a.min);
+    const rank = ranks.find(r => ratio >= r.min) || ranks[ranks.length - 1];
+    const total = stations.reduce((a, s) => a + (s.score || 0), 0) + quiz.score;
+    return { stations, starSum, starMax, rank, total, quiz };
+}
+
+function showEnd(quiz) {
+    const es = AppState.config.endscreen;
+    const r = computeResult(quiz);
+    AppState.quizResult = r;
+
+    $('ui-end-rank').textContent = `「${r.rank.title}」`;
+    $('ui-end-score').textContent = `${es.score_label || '总分'} ${r.total}`;
+    $('ui-end-breakdown').innerHTML =
+        `<span>印章星数 <b>${r.starSum}/${r.starMax}</b></span>` +
+        `<span>答题 <b>${quiz.correct}/${quiz.total}</b></span>` +
+        `<span>最高连击 <b>${quiz.bestCombo}</b></span>`;
+    $('ui-end-message').textContent = r.rank.message;
+    $('input-nickname').placeholder = es.nickname_placeholder || '';
+    $('btn-share-text').textContent = es.share_button;
+    $('btn-replay').textContent = es.replay_button;
+
+    Screens.show(Screens.end);
+    setTimeout(() => GameEngine.runBadgeAnimation(r.rank.badge), 700);
+}
+
+function bindEnd() {
+    const es = () => AppState.config.endscreen;
+
+    $('btn-share').addEventListener('click', async () => {
+        const r = AppState.quizResult;
+        const btn = $('btn-share');
+        btn.disabled = true;
+        try {
+            const url = location.href.split('#')[0];
+            const dataUrl = await Poster.render({
+                nickname: $('input-nickname').value,
+                rankTitle: r.rank.title,
+                rankMessage: r.rank.message,
+                badge: r.rank.badge,
+                score: r.total,
+                quizText: `答对 ${r.quiz.correct}/${r.quiz.total} 题`,
+                stations: r.stations.map(s => ({ stamp: s.stamp, stars: s.stars })),
+                url,
+            });
+            $('ui-poster-img').src = dataUrl;
+            $('ui-poster-hint').textContent = es().poster_hint;
+            const save = $('btn-poster-save');
+            save.textContent = es().poster_save;
+            save.href = dataUrl;
+            $('btn-poster-close').textContent = es().poster_close;
+            $('ui-poster').hidden = false;
+        } catch (e) {
+            console.error(e);
+            GameEngine.copyText((es().share_text || '') + ' ' + location.href.split('#')[0], es().share_copied_toast);
+        } finally {
+            btn.disabled = false;
         }
     });
 
-    const btnCloseQuiz = document.getElementById('btn-close-quiz');
-    if (btnCloseQuiz) btnCloseQuiz.addEventListener('click', closeQuiz);
+    $('btn-poster-close').addEventListener('click', () => { $('ui-poster').hidden = true; });
 
-    // 向下滑动关闭答题
-    const quizScreen = document.getElementById('screen-quiz');
-    let touchStartY = 0;
-
-    quizScreen.addEventListener('touchstart', e => {
-        touchStartY = e.touches[0].clientY;
-    }, { passive: true });
-
-    quizScreen.addEventListener('touchend', e => {
-        const dy = e.changedTouches[0].clientY - touchStartY;
-        if (dy > 100) closeQuiz();
-    }, { passive: true });
+    $('btn-replay').addEventListener('click', () => {
+        Store.clear();
+        location.reload();
+    });
 }
 
 // ─── 横屏提示、断网提示、启动 ───────────────────────────────────────────────
 function bindOrientationWarning() {
-    const warning = document.getElementById('orientation-warning');
-    function checkOrientation() {
-        // 只在手机横屏（高度很矮）时提示
+    const warning = $('orientation-warning');
+    function check() {
         const isLandscape = window.matchMedia('(orientation: landscape)').matches;
-        const isShort     = window.innerHeight < 500;
-        warning.style.display = (isLandscape && isShort) ? 'flex' : 'none';
+        warning.style.display = (isLandscape && window.innerHeight < 500) ? 'flex' : 'none';
+        if (Screens.hub.classList.contains('active')) fitHubMap();
     }
-    window.addEventListener('resize', checkOrientation);
-    window.addEventListener('orientationchange', checkOrientation);
-    checkOrientation();
+    window.addEventListener('resize', check);
+    window.addEventListener('orientationchange', check);
+    check();
 }
 
 function bindOfflineToast() {
@@ -696,14 +751,15 @@ function bindOfflineToast() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    Store.load();
     runLoadingScreen();
-    bindLoadRetry();
-    bindCurtainTransition();
+    $('btn-load-retry').addEventListener('click', runLoadingScreen);
+    bindIntro();
     bindPrologueButtons();
-    bindMapButton();
-    bindSwipeNavigation();
-    bindAudioToggle();
+    bindStation();
+    bindGame();
+    bindChallenge();
+    bindEnd();
     bindOrientationWarning();
     bindOfflineToast();
-    bindChallengeTransition();
 });

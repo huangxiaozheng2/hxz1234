@@ -557,23 +557,30 @@ def logo():
     save("logo.svg", svg(512, 512, b))
 
 
-# ── 8. 徽章 512×512，透明背景 ────────────────────────────────────────────────
-def badge():
+# ── 8. 称号徽章 512×512，透明背景（三个等级，配色不同）──────────────────────
+BADGES = [
+    ("badge-1.svg", "初识淮安", "#b08a5a", "#d9c09a", "#7a5a3a"),   # 铜
+    ("badge-2.svg", "淮安行家", "#a9b2b8", "#dfe5e8", "#5f6b73"),   # 银
+    ("badge-3.svg", "文旅达人", GOLD, "#f1cf6e", DEEP_RED),        # 金
+]
+
+
+def badge(name, chars, ring, ring_light, ribbon):
     teeth = ""
     for i in range(36):
         a = math.radians(i * 10)
-        teeth += f'<circle cx="{256 + 228 * math.cos(a)}" cy="{256 + 228 * math.sin(a)}" r="22" fill="{GOLD}"/>'
+        teeth += f'<circle cx="{256 + 228 * math.cos(a)}" cy="{256 + 228 * math.sin(a)}" r="22" fill="{ring}"/>'
     b = f'''{teeth}
-<circle cx="256" cy="256" r="226" fill="{GOLD}"/>
-<circle cx="256" cy="256" r="200" fill="#f1cf6e"/>
+<circle cx="256" cy="256" r="226" fill="{ring}"/>
+<circle cx="256" cy="256" r="200" fill="{ring_light}"/>
 <circle cx="256" cy="256" r="186" fill="{RED}"/>
 <circle cx="256" cy="256" r="170" fill="none" stroke="#f6e7c8" stroke-width="5" stroke-dasharray="14 9"/>
 <rect x="146" y="120" width="220" height="220" rx="22" fill="#f6e7c8"/>
-{seal_text(256, 230, 96, "文旅达人", RED)}
-<path d="M120,360 Q256,410 392,360 L380,420 Q256,460 132,420 Z" fill="{DEEP_RED}"/>
-<text x="256" y="416" font-family="{FONT}" font-size="40" font-weight="700" fill="{GOLD}" text-anchor="middle" letter-spacing="10">淮安</text>
+{seal_text(256, 230, 96, chars, RED)}
+<path d="M120,360 Q256,410 392,360 L380,420 Q256,460 132,420 Z" fill="{ribbon}"/>
+<text x="256" y="416" font-family="{FONT}" font-size="40" font-weight="700" fill="{ring_light}" text-anchor="middle" letter-spacing="10">淮安</text>
 '''
-    save("badge.svg", svg(512, 512, b))
+    save(name, svg(512, 512, b))
 
 
 if __name__ == "__main__":
@@ -584,5 +591,6 @@ if __name__ == "__main__":
     zone04()
     journey_map()
     logo()
-    badge()
+    for args in BADGES:
+        badge(*args)
     print("SVG 已生成到", OUT)

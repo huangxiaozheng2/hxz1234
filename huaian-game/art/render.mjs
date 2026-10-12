@@ -25,7 +25,9 @@ const jobs = [
     ['zone-04.svg',  'images/zone-04.jpg',  1200, 960,  'jpeg'],
     ['map.svg',      'images/map.png',      1024, 1536, 'png'],
     ['logo.svg',     'icons/logo.png',      512,  512,  'png'],
-    ['badge.svg',    'icons/badge.png',     512,  512,  'png'],
+    ['badge-1.svg',  'icons/badge-1.png',   512,  512,  'png'],
+    ['badge-2.svg',  'icons/badge-2.png',   512,  512,  'png'],
+    ['badge-3.svg',  'icons/badge-3.png',   512,  512,  'png'],
 ];
 
 const browser = await playwright.chromium.launch();

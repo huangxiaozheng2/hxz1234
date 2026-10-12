@@ -1,13 +1,13 @@
 # ==========================================
 # 淮安印记 —— 内容配置文件
 # ==========================================
-# 游戏里所有的文字、展区、题目、图片和音效都在这里配置。
+# 游戏里所有的文字、站点、小游戏参数、题库和评级都在这里。
 # 改内容只需要改这个文件和 assets/ 文件夹，不用动代码。
 
 
 project:
   name: "淮安印记"
-  description: "运河之都 · 淮安文旅互动之旅"
+  description: "运河之都 · 淮安文旅闯关游戏"
   mascot_name: "小印"               # 开场故事里会高亮显示的吉祥物名字
   theme:
     primary_color: "#9e2b25"        # 朱砂红（印泥色）
@@ -21,26 +21,24 @@ project:
 # 1. 入口（扫码页 qr.html）
 qr_screen:
   title: "淮安印记"
-  subtitle: "运河之都 · 文旅互动之旅"
+  subtitle: "运河之都 · 文旅闯关游戏"
   instruction: "扫码开始游戏"
-  # 二维码会根据当前网址自动生成；如需固定网址，请填写下面一项
-  game_url: ""
+  game_url: ""                      # 留空则自动使用当前网址
   error_message: "页面好像走丢了，请重新扫一下二维码吧！"
-  retry_button: "重试"
 
 loading_screen:
   logo: "assets/icons/logo.png"
-  loading_text: "正在加载……"
-  timeout_ms: 3000
 
 
 # 2. 首页
 intro_screen:
   background_image: "assets/images/intro-bg.jpg"
   title: "淮安印记"
-  subtitle: "运河之都 · 文旅之旅"
-  intro_text: "打开声音，跟着小印走过淮安的四个地方，集齐印章，赢取「淮安文旅达人」徽章！"
+  subtitle: "运河之都 · 文旅闯关"
+  intro_text: "四座名胜、四个小游戏、一场限时大挑战。集齐四枚印章，看看你能拿到什么称号！"
   start_button: "开始旅程"
+  continue_button: "继续上次的旅程"
+  restart_link: "从头开始"
 
 
 # 3. 开场故事
@@ -49,151 +47,213 @@ prologue_screen:
   cta_button: "出发！"
   ambient_audio: "assets/audio/ambient.mp3"
   lines:
-    - id: "p1"
-      text: "你好呀，我是小印——一枚来自淮安的老印章。"
+    - text: "你好呀，我是小印——一枚来自淮安的老印章。"
       effect: "typewriter"
-    - id: "p2"
-      text: "千百年来，运河上的船来船往，小印在每一处名胜都留下过印记。可是一阵风吹过，印记都散落到了淮安的各个角落……"
-      effect: "fade-up"
-    - id: "p3"
-      text: "跟着地图走过四个地方，听小印讲讲这里的故事，再完成一个小挑战，就能把印记一个个找回来。"
-      effect: "fade-up"
-    - id: "p4"
-      text: "集齐所有印记，小印就能回家啦。你也会得到一枚专属徽章，留作这趟旅程的纪念。"
-      effect: "fade-up"
-    - id: "p5"
-      text: "准备好了吗？小印在等你哦！"
-      effect: "fade-up"
+    - text: "千百年来，运河上船来船往，小印在每一处名胜都留下过印记。可是一阵风吹过，印记都散落到了淮安的各个角落……"
+    - text: "每到一站，先听小印讲讲这里的故事，再通过一个小游戏，就能把这一站的印章盖回来。"
+    - text: "四枚印章集齐后，还有一场限时大挑战。成绩越好，称号越高！"
+    - text: "准备好了吗？小印在等你哦！"
 
 
-# 3.5 旅程地图
+# 4. 闯关地图
+# x / y 是站点在地图图片上的位置（百分比），改了地图图片记得一起改。
 map_screen:
   background_image: "assets/images/map.png"
-  title: "你的淮安之旅"
-  cta_button: "开始探索"
+  title: "淮安闯关地图"
+  hint: "点亮的站点可以进入，按顺序闯关"
+  final_label: "印记大挑战"
+  final_position: { x: 49.8, y: 15 }
 
 
-# 4. 展区故事（左右滑动切换）
-# 每个展区可以写 audio（mp3 讲解）。不写的话，会用手机自带的语音朗读文字。
-zones:
-  - id: "zone-01"
-    order: 1
-    name: "第一站 · 周恩来故里"
-    thumbnail: "assets/images/zone-01.jpg"
-    slides:
-      - image: "assets/images/zone-01.jpg"
-        text: "1898年，周恩来出生在淮安城内驸马巷的一座青砖小院里，在这里度过了童年。他少年时立下“为中华之崛起而读书”的志向，后来成为新中国第一任总理。如今，故居、周恩来纪念馆和童年读书处都向公众开放，静静讲述着一代伟人的初心。"
+# 5. 站点
+stations:
+  - id: "zhou"
+    name: "周恩来故里"
+    stamp: "恩来故里"               # 印章上的四个字
+    position: { x: 35.2, y: 77.5 }
+    image: "assets/images/zone-01.jpg"
+    story: "1898年，周恩来出生在淮安城内驸马巷的一座青砖小院里，在这里度过了童年。他少年时立下“为中华之崛起而读书”的志向，后来成为新中国第一任总理。如今，故居、周恩来纪念馆和童年读书处都向公众开放，静静讲述着一代伟人的初心。"
+    game:
+      type: "timeline"
+      title: "少年志向"
+      howto: "把周恩来一生中的大事，按发生的先后顺序依次点出来。点错会扣分哦！"
+      events:                       # 按正确顺序填写，游戏里会自动打乱
+        - year: "1898年"
+          text: "出生在淮安驸马巷"
+        - year: "1910年"
+          text: "离开淮安，随伯父到东北读书"
+        - year: "1911年"
+          text: "在沈阳立下“为中华之崛起而读书”的志向"
+        - year: "1917年"
+          text: "东渡日本求学"
+        - year: "1920年"
+          text: "赴法国勤工俭学"
+        - year: "1949年"
+          text: "新中国成立，出任政务院总理"
 
-  - id: "zone-02"
-    order: 2
-    name: "第二站 · 河下古镇"
-    thumbnail: "assets/images/zone-02.jpg"
-    slides:
-      - image: "assets/images/zone-02.jpg"
-        text: "走进河下古镇，石板路两旁是明清老宅。《西游记》的作者吴承恩就是淮安人，他的故居就在这里。相传他从小爱听神怪故事，晚年写下了孙悟空保护唐僧西天取经的传奇。一根金箍棒、一朵筋斗云，从淮安的小院一直飞进了全世界读者的心里。"
+  - id: "hexia"
+    name: "河下古镇"
+    stamp: "西游河下"
+    position: { x: 68.4, y: 61.8 }
+    image: "assets/images/zone-02.jpg"
+    story: "走进河下古镇，石板路两旁是明清老宅。《西游记》的作者吴承恩就是淮安人，他的故居就在这里。相传他从小爱听神怪故事，晚年写下了孙悟空保护唐僧西天取经的传奇。一根金箍棒、一朵筋斗云，从淮安的小院一直飞进了全世界读者的心里。"
+    game:
+      type: "whack"
+      title: "金箍棒打妖怪"
+      howto: "妖怪从古镇的窗户里冒出来了！快点它们，帮大圣降妖。小心，千万别打到唐僧！"
+      duration: 30                  # 秒
+      stars: [12, 20, 28]           # 1/2/3 星需要的分数
 
-  - id: "zone-03"
-    order: 3
-    name: "第三站 · 清江浦 · 大运河"
-    thumbnail: "assets/images/zone-03.jpg"
-    slides:
-      - image: "assets/images/zone-03.jpg"
-        text: "淮安被称为“运河之都”。明清两代，掌管全国漕运的漕运总督府就设在淮安，南来北往的粮船都要在这里过闸。1415年，陈瑄开凿清江浦河，清江浦从此繁华起来，有“南船北马，舍舟登陆”之说。2014年，大运河成功申遗，淮安的清口枢纽和漕运总督府遗址都是其中的重要组成部分。"
+  - id: "canal"
+    name: "清江浦 · 大运河"
+    stamp: "运河之都"
+    position: { x: 35.2, y: 45.6 }
+    image: "assets/images/zone-03.jpg"
+    story: "淮安被称为“运河之都”。明清两代，掌管全国漕运的漕运总督府就设在淮安，南来北往的粮船都要在这里过闸。1415年，陈瑄开凿清江浦河，清江浦从此繁华起来，有“南船北马，舍舟登陆”之说。2014年，大运河成功申遗，淮安的清口枢纽和漕运总督府遗址都是其中的重要组成部分。"
+    game:
+      type: "canal"
+      title: "漕船运粮"
+      howto: "驾驶漕船沿运河北上！点屏幕左边或右边换航道，躲开礁石和浮木，多收集粮袋，把粮食运到清江浦。"
+      distance: 900                 # 航程（米）
+      lives: 3
+      stars: [10, 16]               # 2 星、3 星需要的粮袋数；安全到站即得 1 星
 
-  - id: "zone-04"
-    order: 4
-    name: "第四站 · 淮扬美食"
-    thumbnail: "assets/images/zone-04.jpg"
-    slides:
-      - image: "assets/images/zone-04.jpg"
-        text: "淮安是淮扬菜的发源地之一。1949年的“开国第一宴”，主打的就是淮扬菜。来淮安一定要尝尝软兜长鱼——长鱼就是黄鳝，口感滑嫩；还有平桥豆腐和文楼汤包。吃汤包有个口诀：“轻轻提，慢慢移，先开窗，后喝汤”，小心别被烫到哦！"
+  - id: "food"
+    name: "淮扬美食"
+    stamp: "淮扬美食"
+    position: { x: 68.4, y: 30.6 }
+    image: "assets/images/zone-04.jpg"
+    story: "淮安是淮扬菜的发源地之一。1949年的“开国第一宴”，主打的就是淮扬菜。来淮安一定要尝尝软兜长鱼——长鱼就是黄鳝，口感滑嫩；还有平桥豆腐和文楼汤包。吃汤包有个口诀：“轻轻提，慢慢移，先开窗，后喝汤”，小心别被烫到哦！"
+    game:
+      type: "tangbao"
+      title: "吃汤包"
+      howto: "按照口诀吃一个文楼汤包：轻轻提，慢慢移，先开窗，后喝汤。手太快、顺序错，都会出糗！"
 
 
-# 5. 小游戏 / 答题挑战
+# 6. 印记大挑战（限时答题）
 quiz_game:
   challenge_screen:
-    title: "印记挑战"
-    description: "四站都走完啦！答对问题，就能把散落的印记一个个盖回来。准备好了吗？"
+    title: "印记大挑战"
+    description: "从题库里随机抽 6 道题，每题 15 秒。答得越快分越高，连续答对还有连击加成！"
     start_button: "开始挑战"
+  questions_per_round: 6
+  seconds_per_question: 15
 
   questions:
-    - id: "q1"
-      related_zone: "zone-01"
-      question: "周恩来出生于哪一年？"
-      options:
-        - "1893年"
-        - "1898年"
-        - "1904年"
-      correct_index: 1        # 从 0 开始数
-      success_message: "你找回了一枚印记！"
-      error_message: "正确答案是 1898 年。"
-      explanation: "1898年3月5日，周恩来出生在淮安城内驸马巷的周家老宅，也就是今天的周恩来故居。"
-
-    - id: "q2"
-      related_zone: "zone-02"
-      question: "《西游记》的作者是谁？"
-      options:
-        - "施耐庵"
-        - "罗贯中"
-        - "吴承恩"
-      correct_index: 2
-      success_message: "你找回了一枚印记！"
-      error_message: "正确答案是吴承恩。"
-      explanation: "吴承恩是明代淮安府山阳县（今淮安区）人，故居位于河下古镇附近。"
-
-    - id: "q3"
-      related_zone: "zone-03"
-      question: "明清时期掌管全国漕运的“漕运总督府”设在哪里？"
-      options:
-        - "淮安"
-        - "扬州"
-        - "杭州"
-      correct_index: 0
-      success_message: "你找回了一枚印记！"
-      error_message: "正确答案是淮安。"
-      explanation: "漕运总督驻扎淮安，统管南粮北运，淮安也因此被称为“运河之都”。漕运总督府遗址就在今天淮安区的镇淮楼北面。"
-
-    - id: "q4"
-      related_zone: "zone-04"
-      question: "淮安名菜“软兜长鱼”里的“长鱼”指的是什么？"
-      options:
-        - "鲤鱼"
-        - "黄鳝"
-        - "带鱼"
+    - question: "周恩来出生于哪一年？"
+      options: ["1893年", "1898年", "1904年"]
       correct_index: 1
-      success_message: "最后一枚印记，到手啦！"
-      error_message: "正确答案是黄鳝。"
-      explanation: "淮安人把黄鳝叫作“长鱼”。软兜长鱼选用小黄鳝的脊背肉烹制，夹起来两头下垂、像个兜子，所以叫“软兜”。"
+      explanation: "1898年3月5日，周恩来出生在淮安城内驸马巷，也就是今天的周恩来故居。"
+
+    - question: "周恩来少年时立下的志向是？"
+      options: ["为中华之崛起而读书", "读书破万卷", "天下兴亡，匹夫有责"]
+      correct_index: 0
+      explanation: "少年周恩来在沈阳读书时，立下了“为中华之崛起而读书”的志向。"
+
+    - question: "《西游记》的作者是谁？"
+      options: ["施耐庵", "罗贯中", "吴承恩"]
+      correct_index: 2
+      explanation: "吴承恩是明代淮安府山阳县（今淮安区）人。"
+
+    - question: "吴承恩是哪个朝代的人？"
+      options: ["唐朝", "明朝", "清朝"]
+      correct_index: 1
+      explanation: "吴承恩生活在明代。《西游记》讲的是唐代玄奘取经的故事，但书是明代写成的。"
+
+    - question: "吴承恩故居位于淮安的哪座古镇？"
+      options: ["河下古镇", "周庄古镇", "乌镇"]
+      correct_index: 0
+      explanation: "吴承恩故居在淮安区河下古镇。周庄和乌镇分别在苏州和嘉兴。"
+
+    - question: "明清时期掌管全国漕运的“漕运总督府”设在哪里？"
+      options: ["淮安", "扬州", "杭州"]
+      correct_index: 0
+      explanation: "漕运总督驻扎淮安，统管南粮北运。漕运总督府遗址就在今天淮安区镇淮楼的北面。"
+
+    - question: "淮安被誉为什么？"
+      options: ["运河之都", "六朝古都", "天府之国"]
+      correct_index: 0
+      explanation: "淮安因漕运而兴，被称为“运河之都”。"
+
+    - question: "陈瑄开凿清江浦河是在哪一年？"
+      options: ["1368年", "1415年", "1644年"]
+      correct_index: 1
+      explanation: "明永乐十三年（1415年），陈瑄开凿清江浦河，清江浦从此兴起。"
+
+    - question: "“南船北马，舍舟登陆”说的是哪里？"
+      options: ["清江浦", "苏州", "南京"]
+      correct_index: 0
+      explanation: "过去南方来的旅客坐船到清江浦，再换乘车马北上，所以有“南船北马，舍舟登陆”的说法。"
+
+    - question: "中国大运河是哪一年列入《世界遗产名录》的？"
+      options: ["2004年", "2014年", "2019年"]
+      correct_index: 1
+      explanation: "2014年，中国大运河申遗成功，淮安的清口枢纽和漕运总督府遗址都是遗产的组成部分。"
+
+    - question: "淮安名菜“软兜长鱼”里的“长鱼”指的是什么？"
+      options: ["鲤鱼", "黄鳝", "带鱼"]
+      correct_index: 1
+      explanation: "淮安人把黄鳝叫作“长鱼”。软兜长鱼夹起来两头下垂，像个兜子，所以叫“软兜”。"
+
+    - question: "1949年“开国第一宴”主要是哪个菜系？"
+      options: ["川菜", "粤菜", "淮扬菜"]
+      correct_index: 2
+      explanation: "开国第一宴以淮扬菜为主，口味清淡平和，南北宾客都能接受。"
+
+    - question: "吃汤包的口诀“轻轻提，慢慢移”之后是？"
+      options: ["先开窗，后喝汤", "先喝汤，后开窗", "一口吞，不用慌"]
+      correct_index: 0
+      explanation: "先咬开一个小口散热，再慢慢喝汤，才不会被烫到。"
+
+    - question: "“一饭千金”的故事主人公是哪位淮安人？"
+      options: ["韩信", "项羽", "刘邦"]
+      correct_index: 0
+      explanation: "韩信年轻时受漂母一饭之恩，后来以千金相报。韩信是淮阴人，也就是今天的淮安。"
+
+    - question: "“击鼓战金山”的南宋抗金女英雄梁红玉是哪里人？"
+      options: ["杭州", "淮安", "开封"]
+      correct_index: 1
+      explanation: "梁红玉是楚州人，也就是今天的淮安，淮安城内有梁红玉祠。"
+
+    - question: "淮安境内的洪泽湖是中国第几大淡水湖？"
+      options: ["第一", "第二", "第四"]
+      correct_index: 2
+      explanation: "洪泽湖是中国第四大淡水湖，排在鄱阳湖、洞庭湖、太湖之后。"
+
+    - question: "淮安位于中国哪条重要的地理分界线上？"
+      options: ["秦岭—淮河线", "胡焕庸线", "长城沿线"]
+      correct_index: 0
+      explanation: "秦岭—淮河一线是中国南北方的地理分界线，淮安建有南北地理分界线标志园。"
 
 
-# 6. 结束页（徽章）
+# 7. 结束页：称号与海报
 endscreen:
-  title: "恭喜你，集齐淮安印记！"
-  message: "小印终于回家啦。你已获得「淮安文旅达人」徽章，快分享给朋友，约他们一起来淮安吧！"
-  score_template: "答对 {score} / {total} 题"
-  share_text: "我刚刚完成了「淮安印记」文旅之旅，获得了淮安文旅达人徽章！"
-  share_button: "分享给朋友"
+  title: "旅程完成！"
+  score_label: "总分"
+  share_button: "生成分享海报"
   replay_button: "再玩一次"
+  poster_hint: "长按图片保存，分享到朋友圈"
+  poster_save: "保存海报"
+  poster_close: "关闭"
+  nickname_placeholder: "写上你的名字（可不填）"
+  share_text: "我在「淮安印记」闯关游戏里集齐了四枚淮安印章！你也来试试？"
   share_copied_toast: "链接已复制，快去粘贴给朋友吧！"
-  badge_image: "assets/icons/badge.png"
-  polaroids:
-    - image: "assets/images/zone-03.jpg"
-      label: "清江浦"
-      rotation: "-8deg"
-      delay: "1.2s"
-      position: "left"
-    - image: "assets/images/zone-02.jpg"
-      label: "河下古镇"
-      rotation: "6deg"
-      delay: "1.5s"
-      position: "right"
-    - image: "assets/images/zone-04.jpg"
-      label: "淮扬美食"
-      rotation: "5deg"
-      delay: "1.8s"
-      position: "left-low"
+  # 按得分率从高到低匹配：min 是 0~1 之间的比例
+  ranks:
+    - min: 0.85
+      title: "文旅达人"
+      badge: "assets/icons/badge-3.png"
+      message: "你对淮安了如指掌，是名副其实的淮安文旅达人！"
+    - min: 0.6
+      title: "淮安行家"
+      badge: "assets/icons/badge-2.png"
+      message: "很厉害！再多了解一点，你就是淮安文旅达人了。"
+    - min: 0
+      title: "初识淮安"
+      badge: "assets/icons/badge-1.png"
+      message: "淮安的故事才刚刚开始，欢迎你来淮安亲眼看一看！"
 
 
-# 7. 全局异常提示
+# 8. 全局提示
 exceptions:
   offline_toast: "网络好像断开了，正在重新连接……"
