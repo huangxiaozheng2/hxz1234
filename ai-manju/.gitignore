@@ -1,0 +1,6 @@
+__pycache__/
+*.egg-info/
+build/
+output/
+# 示例项目运行时生成的定妆照
+examples/*/characters/

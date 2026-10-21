@@ -1,0 +1,94 @@
+# 示例剧本（手写），可以不配置 LLM 直接跑通整个工作流。
+title: 末班车
+style: 国漫厚涂
+logline: 深夜错过末班车的女孩，登上了一列开往过去的地铁。
+characters:
+  - id: linxia
+    name: 林夏
+    gender: female
+    appearance: 25-year-old Chinese woman, short black bob hair, tired eyes, beige trench coat, white shirt, silver earrings, office tote bag
+    voice_hint: 青年女声，疲惫、克制
+  - id: conductor
+    name: 老列车员
+    gender: male
+    appearance: 70-year-old Chinese man, grey short hair, kind wrinkled face, vintage dark green railway uniform with brass buttons, peaked cap
+    voice_hint: 老年男声，温和
+scenes:
+  - id: s1
+    location: 深夜地铁站台
+    time: night
+    mood: 孤独、悬疑
+    shots:
+      - id: s1_01
+        shot: 大远景
+        camera: push_in
+        description: 空荡荡的地铁站台，只有林夏一个人
+        visual: empty subway platform at midnight, flickering fluorescent lights, a lone woman standing near the edge, long perspective
+        characters: [linxia]
+        narration: 凌晨零点十二分，最后一班地铁早就开走了。
+      - id: s1_02
+        shot: 近景
+        camera: static
+        description: 林夏看着手机上的时间，叹气
+        visual: woman looking down at her phone screen, exhausted expression, phone light on her face
+        characters: [linxia]
+        lines:
+          - {speaker: linxia, text: 又错过了……, emotion: 疲惫}
+      - id: s1_03
+        shot: 全景
+        camera: pan_left
+        description: 一列老式绿皮地铁亮着暖光驶入站台
+        visual: an old-fashioned green subway train with warm glowing windows pulling into the station, light streaks, mysterious mist
+        narration: 就在这时，一列从没见过的老式列车，缓缓进站。
+      - id: s1_04
+        shot: 中景
+        camera: push_in
+        description: 车门打开，车厢里坐着一位穿旧制服的老列车员，微笑着
+        visual: train doors open, inside the empty carriage an old man in vintage railway uniform smiling gently, warm yellow light
+        characters: [conductor]
+        lines:
+          - {speaker: conductor, text: 姑娘，上车吧。, emotion: 温和}
+          - {speaker: conductor, text: 这趟车，开往你最想回去的那一天。, emotion: 神秘}
+  - id: s2
+    location: 行驶中的老式车厢
+    time: dusk
+    mood: 怀旧、温暖
+    shots:
+      - id: s2_01
+        shot: 近景
+        camera: static
+        description: 林夏坐在车窗边，窗外是夕阳下的老街
+        visual: woman sitting by the train window, outside the window an old street from the 2000s bathed in sunset, reflection on glass
+        characters: [linxia]
+        lines:
+          - {speaker: linxia, text: 这是……我家楼下？, emotion: 震惊}
+      - id: s2_02
+        shot: 远景
+        camera: pan_right
+        description: 窗外路口，小时候的林夏牵着父亲的手
+        visual: a little girl holding her father's hand at a street corner, nostalgic warm sunset, old shops, bicycles
+        narration: 她看见了小时候的自己，还有已经离开三年的父亲。
+      - id: s2_03
+        shot: 特写
+        camera: push_in
+        description: 林夏眼眶泛红，手按在玻璃上
+        visual: extreme close-up of a woman's teary eyes, her hand pressed against the window glass, warm light
+        characters: [linxia]
+        lines:
+          - {speaker: linxia, text: 爸，那句对不起……我一直没说。, emotion: 哽咽}
+      - id: s2_04
+        shot: 近景
+        camera: tilt_down
+        description: 老列车员递来一张泛黄的车票
+        visual: old man's hands offering a faded yellow paper train ticket, close shot, soft light
+        characters: [conductor]
+        lines:
+          - {speaker: conductor, text: 只能停一分钟，去吧。, emotion: 温和}
+      - id: s2_05
+        shot: 全景
+        camera: pull_out
+        description: 车门打开，门外金色的光里传来父亲的声音
+        visual: train doors slide open revealing a bright golden light, silhouette of a woman stepping toward the light
+        characters: [linxia]
+        narration: 车门打开，门外传来那个熟悉的声音——
+        duration: 3.5

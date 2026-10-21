@@ -1,0 +1,4 @@
+PyYAML>=6
+Pillow>=9.2
+# 可选：Edge 在线配音
+# edge-tts>=6

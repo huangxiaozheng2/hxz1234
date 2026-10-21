@@ -1,0 +1,36 @@
+# 示例项目：默认用“草稿模式”，不需要显卡和任何 API，直接 `manju run examples/demo` 就能出片。
+# 接入真实模型时，把下面的 backend 换掉即可（见 README「配置说明」）。
+title: 末班车
+style: 国漫厚涂
+
+video:
+  resolution: [1080, 1920]
+  fps: 24
+
+llm:
+  backend: none                # 剧本已经手写好了；想让 AI 从 story.txt 重写，改成 openai 并运行 --only script --force
+  base_url: https://api.deepseek.com/v1
+  model: deepseek-chat
+  api_key_env: LLM_API_KEY
+
+image:
+  backend: placeholder         # 换成 comfyui 即可出 AI 画面
+  size: [768, 1344]
+  comfyui:
+    url: http://127.0.0.1:8188
+    workflow: ../../workflows/sdxl_t2i.json
+    params: {ckpt: sd_xl_base_1.0.safetensors, steps: 28, cfg: 6.5}
+
+motion:
+  backend: kenburns
+
+tts:
+  backend: silent              # 换成 edge 就有真人感配音（需 pip install edge-tts 并联网）
+  voices:
+    narrator: {edge: zh-CN-YunyangNeural}
+    linxia: {edge: zh-CN-XiaoxiaoNeural, rate: "-5%"}
+    conductor: {edge: zh-CN-YunjianNeural, rate: "-10%", pitch: "-4Hz"}
+
+subtitle:
+  enabled: true
+  font: Noto Sans CJK SC
