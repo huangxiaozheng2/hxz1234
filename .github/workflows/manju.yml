@@ -56,13 +56,24 @@ jobs:
           python-version: "3.12"
 
       - name: 安装 ffmpeg 和中文字体
+        timeout-minutes: 15
         run: |
-          # 关掉 man-db 的索引更新：GitHub 的 Ubuntu 机器上装软件时这一步会卡好几分钟
-          echo "set man-db/auto-update false" | sudo debconf-communicate > /dev/null 2>&1 || true
-          sudo rm -f /var/lib/man-db/auto-update
-          for i in 1 2 3; do sudo apt-get update -qq && break || sleep 10; done
-          sudo apt-get install -y -qq --no-install-recommends ffmpeg fonts-noto-cjk > /dev/null
+          start=$(date +%s)
+          need=""
+          command -v ffmpeg > /dev/null && command -v ffprobe > /dev/null || need="$need ffmpeg"
+          fc-list :lang=zh | grep -q . || need="$need fonts-noto-cjk"
+          if [ -n "$need" ]; then
+            echo "需要安装：$need"
+            # 关掉 man-db 的索引更新：GitHub 的 Ubuntu 机器上装软件时这一步会卡很久
+            sudo rm -f /var/lib/man-db/auto-update
+            timeout 300 sudo DEBIAN_FRONTEND=noninteractive apt-get update -o Acquire::Retries=3 \
+              || echo "::warning::部分软件源更新失败，继续安装"
+            timeout 600 sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+              -o Dpkg::Use-Pty=0 $need
+          fi
           ffmpeg -version | head -1
+          fc-match "Noto Sans CJK SC:lang=zh-cn"
+          echo "用时 $(( $(date +%s) - start )) 秒"
 
       - name: 安装 ManjuFlow
         run: pip install -q -e ./ai-manju edge-tts

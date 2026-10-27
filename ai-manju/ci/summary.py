@@ -5,7 +5,10 @@ import json
 import sys
 from pathlib import Path
 
-import yaml
+try:
+    import yaml
+except ImportError:   # 前面的安装步骤失败时也要能写出摘要
+    yaml = None
 
 CAMERA_CN = {"static": "固定", "push_in": "推", "pull_out": "拉", "pan_left": "左摇",
              "pan_right": "右摇", "tilt_up": "上摇", "tilt_down": "下摇"}
@@ -16,12 +19,12 @@ def cell(text) -> str:
 
 
 def load(path: Path, kind: str):
-    if not path.exists():
+    if not path.exists() or (kind == "yaml" and yaml is None):
         return None
     try:
         text = path.read_text(encoding="utf-8")
         return json.loads(text) if kind == "json" else yaml.safe_load(text)
-    except (json.JSONDecodeError, yaml.YAMLError):
+    except Exception:   # 文件写了一半等情况，摘要里少显示一点即可
         return None
 
 
