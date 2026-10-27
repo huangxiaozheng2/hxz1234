@@ -83,5 +83,18 @@ class TemplateTest(unittest.TestCase):
             extract_json("没有 JSON")
 
 
+class VoiceTest(unittest.TestCase):
+    def test_pools_and_overrides(self):
+        from manjuflow.backends.tts import assign_voices
+        from manjuflow.schema import Character
+        chars = [Character("a", "甲", gender="female"), Character("b", "乙", gender="女"),
+                 Character("c", "丙", gender="female"), Character("d", "丁", gender="male"),
+                 Character("e", "戊", gender="female", voice="special")]
+        voices = {"narrator": {"edge": "N"}, "special": {"edge": "S"},
+                  "female_pool": [{"edge": "F1"}, {"edge": "F2"}], "male_pool": [{"edge": "M1"}]}
+        got = {k: v["edge"] for k, v in assign_voices(chars, voices).items()}
+        self.assertEqual(got, {"narrator": "N", "a": "F1", "b": "F2", "c": "F1", "d": "M1", "e": "S"})
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import shutil
 import subprocess
 import sys
@@ -13,9 +14,10 @@ from .project import STYLE_PRESETS, Project
 from .schema import voice_items
 from .util import ManjuError, eprint
 
-PROJECT_TEMPLATE = """# 漫剧项目配置。完整选项见 README「配置说明」。
-title: {title}
-style: {style}            # 画风预设（manju styles 查看），也可以直接写英文提示词
+# 项目模板。__TITLE__ / __STYLE__ / __SHOTS__ 会在创建时替换。
+DRAFT_TEMPLATE = """# 漫剧项目配置（草稿模式：不需要显卡和 API Key）。完整选项见 README「配置说明」。
+title: __TITLE__
+style: __STYLE__            # 画风预设（manju styles 查看），也可以直接写英文提示词
 
 video:
   resolution: [1080, 1920]   # 竖屏；横屏改成 [1920, 1080]
@@ -26,10 +28,10 @@ llm:                         # 从 story.txt 自动写剧本；手写 script.yam
   base_url: https://api.deepseek.com/v1
   model: deepseek-chat
   api_key_env: LLM_API_KEY   # 从这个环境变量读取 API Key
-  target_shots: 12
+  target_shots: __SHOTS__
 
 image:
-  backend: placeholder       # placeholder（分镜草稿，不需要显卡）/ comfyui / openai
+  backend: placeholder       # placeholder（分镜草稿）/ comfyui / openai / dashscope
   size: [768, 1344]
   comfyui:
     url: http://127.0.0.1:8188
@@ -45,9 +47,9 @@ motion:
 tts:
   backend: silent            # silent（静音占位）/ edge / openai / http
   voices:
-    narrator: {{edge: zh-CN-YunyangNeural}}
-    default_female: {{edge: zh-CN-XiaoxiaoNeural}}
-    default_male: {{edge: zh-CN-YunxiNeural}}
+    narrator: {edge: zh-CN-YunyangNeural}
+    female_pool: [{edge: zh-CN-XiaoxiaoNeural}, {edge: zh-CN-XiaoyiNeural}]
+    male_pool: [{edge: zh-CN-YunxiNeural}, {edge: zh-CN-YunjianNeural}]
 
 subtitle:
   enabled: true
@@ -58,6 +60,51 @@ bgm:
   volume: 0.18
 """
 
+DASHSCOPE_TEMPLATE = """# 漫剧项目配置（阿里云百炼版）：剧本用通义千问，画面用通义万相，配音用免费的微软语音。
+# 需要环境变量 DASHSCOPE_API_KEY（阿里云百炼控制台 → API-KEY）。完整选项见 README「配置说明」。
+title: __TITLE__
+style: __STYLE__            # 画风预设（manju styles 查看），也可以直接写英文提示词
+
+video:
+  resolution: [1080, 1920]
+  fps: 24
+
+llm:
+  backend: openai
+  base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+  model: qwen-plus
+  api_key_env: DASHSCOPE_API_KEY
+  target_shots: __SHOTS__
+
+image:
+  backend: dashscope
+  size: [768, 1344]
+  on_content_rejected: placeholder   # 某个镜头没通过内容审核时先用分镜卡代替，不中断整条片子
+  dashscope:
+    model: wanx2.1-t2i-turbo
+    api_key_env: DASHSCOPE_API_KEY
+
+motion:
+  backend: kenburns
+
+tts:
+  backend: edge              # 需要 pip install edge-tts，并且能访问微软语音服务
+  voices:
+    narrator: {edge: zh-CN-YunyangNeural}
+    female_pool: [{edge: zh-CN-XiaoxiaoNeural}, {edge: zh-CN-XiaoyiNeural}]
+    male_pool: [{edge: zh-CN-YunxiNeural}, {edge: zh-CN-YunjianNeural}]
+
+subtitle:
+  enabled: true
+  font: Noto Sans CJK SC
+
+bgm:
+  file: ""
+  volume: 0.18
+"""
+
+PRESETS = {"draft": DRAFT_TEMPLATE, "dashscope": DASHSCOPE_TEMPLATE}
+
 
 def cmd_init(a) -> int:
     root = Path(a.dir)
@@ -66,8 +113,10 @@ def cmd_init(a) -> int:
     root.mkdir(parents=True, exist_ok=True)
     (root / "characters").mkdir(exist_ok=True)
     (root / "assets").mkdir(exist_ok=True)
-    (root / "project.yaml").write_text(
-        PROJECT_TEMPLATE.format(title=a.title or root.name, style=a.style), encoding="utf-8")
+    q = lambda v: json.dumps(v, ensure_ascii=False)   # 加引号，标题里有冒号等符号也不会弄坏 YAML
+    text = (PRESETS[a.preset].replace("__TITLE__", q(a.title or root.name))
+            .replace("__STYLE__", q(a.style)).replace("__SHOTS__", str(a.shots)))
+    (root / "project.yaml").write_text(text, encoding="utf-8")
     wf_src = Path(__file__).resolve().parent.parent / "workflows"
     if wf_src.exists():
         shutil.copytree(wf_src, root / "workflows", dirs_exist_ok=True)
@@ -181,6 +230,9 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--title", default="")
     s.add_argument("--style", default="国漫厚涂")
     s.add_argument("--story", help="故事文本文件，会复制为 story.txt")
+    s.add_argument("--preset", choices=sorted(PRESETS), default="draft",
+                   help="配置模板：draft 草稿模式（默认，不需要显卡和 Key）/ dashscope 阿里云百炼")
+    s.add_argument("--shots", type=int, default=12, help="让 LLM 写多少个镜头（默认 12）")
     s.set_defaults(func=cmd_init)
 
     s = sub.add_parser("run", help="运行工作流（默认全部步骤，已完成且没变化的会跳过）")

@@ -15,9 +15,9 @@ from pathlib import Path
 
 from . import ffmpeg
 from .backends import get_backend
-from .backends.image import char_color
+from .backends.image import ContentRejected, PlaceholderImage, char_color
 from .backends.llm import OpenAICompatLLM, extract_json
-from .backends.tts import pick_voice
+from .backends.tts import assign_voices
 from .project import Project
 from .prompts import SCRIPT_FIX, SCRIPT_SYSTEM, SCRIPT_USER, build_image_prompt, build_portrait_prompt, describe
 from .schema import NARRATOR, parse_script, voice_items
@@ -62,6 +62,24 @@ def stage_script(p: Project, force: bool = False) -> None:
     log("script", f"已写入 script.yaml：{describe(script)}。建议先看一遍再继续。")
 
 
+def _draw(p: Project, backend, stage: str, item: str, prompt: str, size, seed: int, out: Path,
+          refs=None, meta=None) -> bool:
+    """调用出图后端。没通过内容审核时，按配置停下，或者先用分镜卡代替（返回 False）。"""
+    try:
+        backend.generate(prompt, p.config["negative_prompt"], size, seed, out, refs=refs, meta=meta)
+        return True
+    except ContentRejected as e:
+        if p.config["image"].get("on_content_rejected", "stop") != "placeholder":
+            raise ManjuError(f"{item} 没有通过内容审核（{e}）。请修改它的画面描述后重新运行。") from e
+        log(stage, f"⚠ {item} 没有通过内容审核，先用分镜卡代替。请修改画面描述后重新运行。")
+        p.warn(stage, item, f"没有通过内容审核，暂用分镜卡代替：{e}")
+        meta = dict(meta or {})
+        if meta.get("kind") == "shot":
+            meta["description"] = "（未通过内容审核）" + (meta.get("description") or "")
+        PlaceholderImage(p, {}).generate(prompt, "", size, seed, out, meta=meta)
+        return False
+
+
 # ── 2. 角色定妆照 ──────────────────────────────────────────────────────────────
 def stage_characters(p: Project, force: bool = False) -> None:
     script = p.script()
@@ -83,9 +101,10 @@ def stage_characters(p: Project, force: bool = False) -> None:
             log("characters", f"{c.name}：characters/{c.id}.png 是你自己放的，保留不动")
             continue
         log("characters", f"生成定妆照：{c.name}")
-        backend.generate(prompt, p.config["negative_prompt"], size, seed, out,
-                         meta={"kind": "portrait", "name": c.name, "appearance": c.appearance, "color": char_color(i)})
-        p.cache.mark(out, fp)
+        ok = _draw(p, backend, "characters", f"角色 {c.name}", prompt, size, seed, out,
+                   meta={"kind": "portrait", "name": c.name, "appearance": c.appearance, "color": char_color(i)})
+        if ok:   # 没通过审核的不记缓存，下次运行会重试
+            p.cache.mark(out, fp)
     log("characters", f"{len(script.characters)} 个角色就绪（定妆照在 characters/ 目录，可以替换成你满意的图）")
 
 
@@ -112,8 +131,8 @@ def stage_images(p: Project, force: bool = False) -> None:
         meta = {"kind": "shot", "shot_id": shot.id, "shot_type": shot.shot, "camera_cn": CAMERA_CN.get(shot.camera, ""),
                 "description": shot.description or shot.visual, "time": shot.scene.time if shot.scene else "",
                 "characters": [(c.name, char_color(script.characters.index(c))) for c in chars]}
-        backend.generate(prompt, p.config["negative_prompt"], size, seed, out, refs=refs, meta=meta)
-        p.cache.mark(out, fp)
+        if _draw(p, backend, "images", f"镜头 {shot.id}", prompt, size, seed, out, refs=refs, meta=meta):
+            p.cache.mark(out, fp)
         (out_dir / f"{shot.id}.prompt.txt").write_text(prompt, encoding="utf-8")
         done += 1
     log("images", f"共 {len(shots)} 个镜头，本次生成 {done} 张")
@@ -123,13 +142,13 @@ def stage_images(p: Project, force: bool = False) -> None:
 def stage_voice(p: Project, force: bool = False) -> None:
     script = p.script()
     backend = get_backend("tts", p)
-    voices = p.config["tts"].get("voices") or {}
+    assigned = assign_voices(script.characters, p.config["tts"].get("voices") or {})
     out_dir = p.dir("audio")
     items = voice_items(script)
     done = 0
     for k, it in enumerate(items, 1):
         ch = script.character(it.speaker) if it.speaker != NARRATOR else None
-        voice = pick_voice(voices, ch, it.speaker)
+        voice = assigned.get(it.speaker) or assigned["narrator"]
         out = out_dir / f"{it.key}.wav"
         fp = stable_hash("voice", backend.name, it.text, it.emotion, voice,
                          p.config["tts"].get(backend.name) if backend.name != "silent" else p.config["tts"]["speech_rate"])
@@ -299,6 +318,8 @@ ORDER = list(STAGES)
 
 
 def run(p: Project, stages: list[str] | None = None, force: bool = False) -> None:
+    if not stages or "images" in stages or "characters" in stages:
+        p.reset_warnings()
     for name in stages or ORDER:
         if name not in STAGES:
             raise ManjuError(f"没有 {name} 这个步骤，可选：{', '.join(ORDER)}")

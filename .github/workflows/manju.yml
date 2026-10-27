@@ -1,0 +1,100 @@
+# AI 漫剧一键生成（ManjuFlow · 阿里云百炼版）
+#
+# 用法：仓库页面 → Actions → 「AI 漫剧生成」→ Run workflow → 填故事 → 运行。
+# 几分钟后在运行页面最下方的 Artifacts 里下载成片。
+# 需要先在 Settings → Secrets and variables → Actions 里添加 DASHSCOPE_API_KEY（阿里云百炼的 API Key）。
+name: AI 漫剧生成
+
+on:
+  workflow_dispatch:
+    inputs:
+      story:
+        description: 故事内容（直接粘贴；留空则用示例《末班车》）
+        required: false
+        default: ""
+      story_file:
+        description: 或者填仓库里的故事文件路径，例如 ai-manju/stories/我的故事.txt（填了就不用上面的故事）
+        required: false
+        default: ""
+      style:
+        description: 画风
+        type: choice
+        options: [国漫厚涂, 日漫赛璐璐, 韩漫条漫, 水墨国风, 3D国创, 美漫]
+        default: 国漫厚涂
+      shots:
+        description: 镜头数量（3–30，越多越长、费用越高，建议 8–14）
+        required: false
+        default: "10"
+      draft:
+        description: 草稿模式：不调用通义万相画图，只出分镜卡（免费，用来先看剧本和节奏）
+        type: boolean
+        default: false
+  # 改代码时不会自动花钱：只有提交说明里带 [manju] / [manju-draft] / [manju-llm] 才会运行
+  push:
+    paths:
+      - "ai-manju/**"
+      - ".github/workflows/manju.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: manju-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  make:
+    name: 生成漫剧
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[manju')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 安装 ffmpeg 和中文字体
+        run: |
+          for i in 1 2 3; do sudo apt-get update -qq && break || sleep 10; done
+          sudo apt-get install -y -qq ffmpeg fonts-noto-cjk > /dev/null
+          ffmpeg -version | head -1
+
+      - name: 安装 ManjuFlow
+        run: pip install -q -e ./ai-manju edge-tts
+
+      - name: 准备项目
+        env:
+          STORY: ${{ inputs.story }}
+          STORY_FILE: ${{ inputs.story_file }}
+          STYLE: ${{ inputs.style }}
+          SHOTS: ${{ inputs.shots }}
+          DRAFT: ${{ inputs.draft }}
+          HEAD_MSG: ${{ github.event.head_commit.message }}
+          DASHSCOPE_API_KEY: ${{ secrets.DASHSCOPE_API_KEY }}
+        run: python ai-manju/ci/prepare.py work
+
+      - name: 生成漫剧
+        env:
+          DASHSCOPE_API_KEY: ${{ secrets.DASHSCOPE_API_KEY }}
+          PYTHONUNBUFFERED: "1"
+        run: manju run work
+
+      - name: 写运行摘要
+        if: always()
+        run: python ai-manju/ci/summary.py work "manju-${{ github.run_number }}" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: 上传成片
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: manju-${{ github.run_number }}
+          path: |
+            work/output/
+            work/script.yaml
+            work/characters/
+            work/build/storyboard.html
+            work/build/images/*.png
+          if-no-files-found: warn
+          retention-days: 30

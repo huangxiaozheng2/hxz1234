@@ -95,12 +95,36 @@ class HTTPTTS:
         out.write_bytes(data)
 
 
+def is_male(gender: str) -> bool:
+    return (gender or "").lower().startswith(("m", "男", "boy"))
+
+
+def assign_voices(characters, voices: dict) -> dict[str, dict]:
+    """给每个角色分配音色。同性别的多个角色会从 female_pool / male_pool 里轮流取不同的音色。"""
+    pools = {True: list(voices.get("male_pool") or []), False: list(voices.get("female_pool") or [])}
+    used = {True: 0, False: 0}
+    out = {"narrator": voices.get("narrator") or voices.get("default_female") or {}}
+    for c in characters:
+        explicit = (voices.get(c.voice) if c.voice else None) or voices.get(c.id)
+        if explicit:
+            out[c.id] = explicit
+            continue
+        male = is_male(c.gender)
+        pool = pools[male]
+        if pool:
+            out[c.id] = pool[used[male] % len(pool)]
+            used[male] += 1
+        else:
+            out[c.id] = pick_voice(voices, c, c.id)
+    return out
+
+
 def pick_voice(voices: dict, character, speaker: str) -> dict:
     if speaker == "narrator" or character is None:
         return voices.get("narrator") or voices.get("default_female") or {}
     for key in (character.voice, character.id):
         if key and key in voices:
             return voices[key]
-    if character.gender.startswith("m") and "default_male" in voices:
+    if is_male(character.gender) and "default_male" in voices:
         return voices["default_male"]
     return voices.get("default_female") or voices.get("narrator") or {}

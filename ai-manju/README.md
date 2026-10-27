@@ -42,6 +42,22 @@ manju run examples/demo
 manju doctor examples/demo
 ```
 
+## 不想装任何东西？在 GitHub 上一键生成
+
+仓库里带了一个 GitHub Actions 工作流（`.github/workflows/manju.yml`）：剧本用**通义千问**写，画面用**通义万相**画，配音用免费的微软语音。不需要显卡，也不用在自己电脑上装软件。
+
+1. **准备 API Key**：在[阿里云百炼控制台](https://bailian.console.aliyun.com/)创建一个 API Key。
+2. **存进仓库**：仓库页面 → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**。
+   Name 填 `DASHSCOPE_API_KEY`，Secret 填刚才的 Key，点 **Add secret**。Key 只保存在 GitHub 的加密存储里，运行日志里不会显示。
+3. **运行**：仓库页面 → **Actions** → 左边选 **AI 漫剧生成** → 右边 **Run workflow**：
+   - 「故事内容」粘贴你的故事（留空就用示例《末班车》）；故事很长时，可以先在仓库里新建一个 txt 文件，再填它的路径；
+   - 选画风、镜头数量；
+   - 第一次可以勾选「草稿模式」，免费看剧本和节奏。
+4. **下载**：几分钟后运行变成绿色 ✓，点进去，页面上有分镜表；最下方 **Artifacts** 里下载压缩包，`output` 文件夹里的 mp4 就是成片。
+
+费用：剧本一次调用、每个镜头一张图、每个角色一张定妆照，都按阿里云百炼的价格计费；配音免费。
+注意：公开仓库的运行记录和下载文件，其他登录 GitHub 的人也能看到。介意的话可以把仓库设为私有（私有仓库每月有一定的免费运行时长）。
+
 ### 做你自己的漫剧
 
 ```bash
@@ -151,6 +167,21 @@ image:
 工作流里用 `{{prompt}}` `{{negative}}` `{{seed}}` `{{width}}` `{{height}}` `{{ref_image}}` 等占位符，
 详见 [`workflows/README.md`](workflows/README.md)。也可以用 `backend: openai` 接任何兼容 `/images/generations` 的出图服务。
 
+### 出图：通义万相（阿里云百炼，不需要显卡）
+
+```yaml
+image:
+  backend: dashscope
+  size: [768, 1344]                    # 宽高各在 512–1440 之间
+  on_content_rejected: placeholder     # 某个镜头没通过内容审核时先用分镜卡代替，不中断整条片子
+  dashscope:
+    model: wanx2.1-t2i-turbo           # 可换成百炼里你开通的其他通义万相文生图模型
+    api_key_env: DASHSCOPE_API_KEY
+```
+
+`manju init 项目 --preset dashscope` 会直接生成这套配置（剧本用通义千问 `qwen-plus`，配音用 Edge）。
+目前通义万相这条路只靠固定的外貌描述来保持角色一致，同一个角色在不同镜头里可能有差别；对一致性要求高的话，建议用 ComfyUI + 参考图节点。
+
 ### 运镜 / 图生视频
 
 ```yaml
@@ -184,6 +215,7 @@ tts:
 
 - `silent`：不发声，按语速估算时长，用来做动态分镜。
 - `edge`：微软 Edge 在线语音，免费，需要 `pip install edge-tts` 并联网。
+- 同性别有多个角色时，在 `voices` 里写 `female_pool` / `male_pool` 列表，会按出场顺序给每个角色分配不同的音色（见 `manju init` 生成的配置）。
 - `openai`：兼容 `/audio/speech` 的服务（不少本地 TTS 服务都提供这个接口），音色写在 `voices.<角色>.openai`。
 - `http`：通用模板，对接自己部署的 GPT-SoVITS、CosyVoice、IndexTTS 等。例如 GPT-SoVITS 的 API（参数请以你部署的版本为准）：
 

@@ -7,12 +7,48 @@ from __future__ import annotations
 
 import ipaddress
 import json
+import time
 import uuid
+from http.client import HTTPException
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlparse
 from urllib.request import ProxyHandler, Request, build_opener
 
-from .util import ManjuError
+from .util import ManjuError, log
+
+
+class HTTPStatusError(ManjuError):
+    """服务器返回了错误状态码。body 是返回内容，方便按错误码给出提示。"""
+
+    def __init__(self, msg: str, status: int, body: str):
+        super().__init__(msg)
+        self.status = status
+        self.body = body
+
+    def json(self) -> dict:
+        try:
+            data = json.loads(self.body)
+            return data if isinstance(data, dict) else {}
+        except json.JSONDecodeError:
+            return {}
+
+
+class NetworkError(ManjuError):
+    """连接失败或超时，通常重试一下就好。"""
+
+
+def retry(fn, attempts: int = 4, base_delay: float = 2.0, what: str = "请求"):
+    """遇到限流（429）、服务器错误（5xx）或网络抖动时，等一会儿再试。"""
+    for i in range(attempts):
+        try:
+            return fn()
+        except (HTTPStatusError, NetworkError) as e:
+            transient = isinstance(e, NetworkError) or e.status == 429 or e.status >= 500
+            if not transient or i == attempts - 1:
+                raise
+            delay = base_delay * (2 ** i)
+            log("http", f"{what}暂时失败，{delay:.0f} 秒后重试（{i + 1}/{attempts - 1}）：{str(e)[:120]}")
+            time.sleep(delay)
 
 
 def is_local(host: str | None) -> bool:
@@ -47,12 +83,15 @@ def request(method: str, url: str, *, json_body=None, data: bytes | None = None,
         with _opener(url).open(req, timeout=timeout) as resp:
             return resp.status, dict(resp.headers), resp.read()
     except HTTPError as e:
-        body = e.read().decode("utf-8", "replace")[:800]
-        raise ManjuError(f"{method} {url} 返回 {e.code}：{body}") from e
+        body = e.read().decode("utf-8", "replace")[:2000]
+        shown = url.split("?")[0]   # 签名链接的参数里可能带临时凭证，不打印
+        raise HTTPStatusError(f"{method} {shown} 返回 {e.code}：{body[:800]}", e.code, body) from e
     except URLError as e:
-        raise ManjuError(f"连接不上 {url}：{e.reason}。请确认服务已经启动、地址端口正确。") from e
+        raise NetworkError(f"连接不上 {url.split('?')[0]}：{e.reason}。请确认服务已经启动、地址端口正确。") from e
     except TimeoutError as e:
-        raise ManjuError(f"请求 {url} 超时（{timeout} 秒）") from e
+        raise NetworkError(f"请求 {url.split('?')[0]} 超时（{timeout} 秒）") from e
+    except (OSError, HTTPException) as e:   # 读取过程中连接被重置、数据不完整等
+        raise NetworkError(f"请求 {url.split('?')[0]} 时连接中断：{e}") from e
 
 
 def get_json(url: str, **kw):

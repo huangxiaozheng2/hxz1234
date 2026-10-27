@@ -4,6 +4,7 @@ import shutil
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import yaml
 
@@ -147,6 +148,74 @@ class PipelineTest(unittest.TestCase):
         # 生成的视频只有 2 秒，要定格补齐到镜头时长，并统一成成片尺寸
         out = p.build / "clips" / "s1_04.mp4"
         self.assertAlmostEqual(ffmpeg.probe_duration(out), tl["s1_04"], delta=0.15)
+
+    def test_dashscope_images(self):
+        ds = FakeServer()
+        tasks, submits = {}, []
+        state = {"throttled": False}
+        from tests.fakes import png_bytes
+
+        def submit(r):
+            submits.append(r)
+            if not state["throttled"]:            # 第一次请求模拟限流，应当自动重试
+                state["throttled"] = True
+                return 429, "application/json", {"code": "Throttling", "message": "Requests rate limit exceeded"}
+            if "FORBIDDEN" in r["json"]["input"]["prompt"]:
+                return 400, "application/json", {"code": "DataInspectionFailed",
+                                                 "message": "Input data may contain inappropriate content."}
+            tid = f"t{len(tasks) + 1}"
+            tasks[tid] = 0
+            return 200, "application/json", {"output": {"task_id": tid, "task_status": "PENDING"}}
+
+        def task(r):
+            tid = r["path"].rsplit("/", 1)[-1]
+            tasks[tid] += 1
+            if tasks[tid] < 2:
+                return 200, "application/json", {"output": {"task_id": tid, "task_status": "RUNNING"}}
+            return 200, "application/json", {"output": {"task_id": tid, "task_status": "SUCCEEDED",
+                                                        "results": [{"url": f"{ds.url}/result/{tid}.png?Expires=1&Signature=x"}]}}
+
+        ds.routes[("POST", "/api/v1/services/aigc/text2image/image-synthesis")] = submit
+        ds.routes[("GET", "/api/v1/tasks/*")] = task
+        ds.routes[("GET", "/result/*")] = lambda r: (200, "image/png", png_bytes())
+        try:
+            p = make_project(self.tmp, {"image": {"backend": "dashscope", "on_content_rejected": "placeholder",
+                                                  "dashscope": {"base_url": ds.url, "api_key": "sk-test", "poll_interval": 0}}})
+            script = (self.tmp / "script.yaml").read_text(encoding="utf-8")
+            (self.tmp / "script.yaml").write_text(script.replace("light streaks, mysterious mist", "FORBIDDEN"), encoding="utf-8")
+            with mock.patch("time.sleep"):
+                run(Project(self.tmp), ["characters", "images"])
+        finally:
+            ds.close()
+        ok = [r for r in submits if "FORBIDDEN" not in r["json"]["input"]["prompt"]]
+        self.assertEqual(len(ok), 1 + 2 + 8)          # 1 次被限流的重试 + 2 张定妆照 + 8 张正常镜头
+        body = ok[-1]["json"]
+        self.assertEqual(body["model"], "wanx2.1-t2i-turbo")
+        self.assertEqual(body["parameters"]["size"], "768*1344")
+        self.assertFalse(body["parameters"]["prompt_extend"])
+        self.assertLess(body["parameters"]["seed"], 2147483647)
+        headers = {k.lower(): v for k, v in ok[-1]["headers"].items()}   # HTTP 头不区分大小写
+        self.assertEqual(headers.get("x-dashscope-async"), "enable")
+        self.assertEqual(headers.get("authorization"), "Bearer sk-test")
+        self.assertEqual(len(list((self.tmp / "build" / "images").glob("*.png"))), 9)   # 被拒的镜头也有分镜卡
+        warnings = json.loads((self.tmp / "build" / "warnings.json").read_text(encoding="utf-8"))
+        self.assertEqual([w["item"] for w in warnings], ["镜头 s1_03"])
+        cache = json.loads((self.tmp / "build" / ".cache.json").read_text(encoding="utf-8"))
+        self.assertFalse(any(k.endswith("s1_03.png") for k in cache))   # 没记缓存，下次会重试
+
+    def test_dashscope_rejection_stops_by_default(self):
+        ds = FakeServer()
+        ds.routes[("POST", "/api/v1/services/aigc/text2image/image-synthesis")] = lambda r: (
+            401, "application/json", {"code": "InvalidApiKey", "message": "Invalid API-key provided."})
+        try:
+            p = make_project(self.tmp, {"image": {"backend": "dashscope",
+                                                  "dashscope": {"base_url": ds.url, "api_key": "bad"}}})
+            from manjuflow.util import ManjuError
+            with self.assertRaises(ManjuError) as cm:
+                run(p, ["characters"])
+        finally:
+            ds.close()
+        self.assertIn("API Key 无效", str(cm.exception))
 
 
 if __name__ == "__main__":

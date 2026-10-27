@@ -54,10 +54,13 @@ DEFAULT_CONFIG: dict = {
         "target_shots": 12,
     },
     "image": {
-        "backend": "placeholder",       # placeholder（分镜草稿）/ comfyui / openai
+        "backend": "placeholder",       # placeholder（分镜草稿）/ comfyui / openai / dashscope
         "size": [768, 1344],
+        "on_content_rejected": "stop",  # 某个镜头没通过内容审核时：stop 停下 / placeholder 先用分镜卡代替
         "comfyui": {"url": "http://127.0.0.1:8188", "workflow": "", "params": {}, "timeout": 600},
         "openai": {"base_url": "", "model": "", "api_key_env": "IMAGE_API_KEY", "size": "768x1344", "extra": {}},
+        "dashscope": {"base_url": "https://dashscope.aliyuncs.com", "model": "wanx2.1-t2i-turbo",
+                      "api_key_env": "DASHSCOPE_API_KEY", "parameters": {}},
     },
     "motion": {
         "backend": "kenburns",          # kenburns（推拉摇移）/ comfyui（图生视频）
@@ -138,6 +141,20 @@ class Project:
         self.output = self.root / "output"
         self.cache = Cache(self.build / ".cache.json")
         self._script: Script | None = None
+
+    # ── 提醒（不影响出片、但需要用户知道的问题）────────────────────────────────
+    @property
+    def warnings_path(self) -> Path:
+        return self.build / "warnings.json"
+
+    def reset_warnings(self) -> None:
+        self.warnings_path.unlink(missing_ok=True)
+
+    def warn(self, stage: str, item: str, message: str) -> None:
+        data = json.loads(self.warnings_path.read_text(encoding="utf-8")) if self.warnings_path.exists() else []
+        data.append({"stage": stage, "item": item, "message": message})
+        self.build.mkdir(parents=True, exist_ok=True)
+        self.warnings_path.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
 
     # ── 路径 ──────────────────────────────────────────────────────────────────
     def path(self, rel: str | Path) -> Path:

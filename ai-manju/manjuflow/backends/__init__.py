@@ -2,12 +2,13 @@
 from __future__ import annotations
 
 from ..util import ManjuError
-from .image import ComfyUIImage, OpenAIImage, PlaceholderImage
+from .image import ComfyUIImage, DashScopeImage, OpenAIImage, PlaceholderImage
 from .motion import ComfyUIMotion, KenBurns
 from .tts import EdgeTTS, HTTPTTS, OpenAITTS, SilentTTS
 
 REGISTRY = {
-    "image": {"placeholder": PlaceholderImage, "comfyui": ComfyUIImage, "openai": OpenAIImage},
+    "image": {"placeholder": PlaceholderImage, "comfyui": ComfyUIImage, "openai": OpenAIImage,
+              "dashscope": DashScopeImage},
     "motion": {"kenburns": KenBurns, "comfyui": ComfyUIMotion},
     "tts": {"silent": SilentTTS, "edge": EdgeTTS, "openai": OpenAITTS, "http": HTTPTTS},
 }

@@ -3,11 +3,13 @@
 placeholder  不用显卡：画一张“分镜卡”，用来先看节奏、对台词、试配音（动态分镜）。
 comfyui      本地开源模型（SDXL / FLUX / Qwen-Image / Kolors……），用你自己导出的工作流。
 openai       任何兼容 OpenAI /images/generations 的服务。
+dashscope    阿里云百炼 · 通义万相（不需要显卡，按张计费）。
 """
 from __future__ import annotations
 
 import base64
 import os
+import time
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
@@ -154,6 +156,94 @@ class OpenAIImage:
             _, _, raw = http.request("GET", item["url"], timeout=300)
         else:
             raise ManjuError(f"出图接口返回格式不认识：{str(item)[:200]}")
+        out.parent.mkdir(parents=True, exist_ok=True)
+        tmp = out.with_suffix(".download")
+        tmp.write_bytes(raw)
+        Image.open(tmp).convert("RGB").save(out)
+        tmp.unlink()
+
+
+class ContentRejected(ManjuError):
+    """画面描述或生成结果没有通过平台的内容审核。"""
+
+
+DASHSCOPE_ERRORS = {
+    "InvalidApiKey": "阿里云百炼 API Key 无效，请检查 DASHSCOPE_API_KEY 是否填对",
+    "Arrearage": "阿里云账户欠费或余额不足，请到阿里云控制台充值",
+    "AccessDenied": "这个 Key 没有调用该模型的权限，请在百炼控制台确认已开通通义万相",
+    "Model.AccessDenied": "这个 Key 没有调用该模型的权限，请在百炼控制台确认已开通通义万相",
+    "ModelNotFound": "模型名不存在，请检查 image.dashscope.model",
+}
+
+
+class DashScopeImage:
+    """阿里云百炼 · 通义万相文生图（异步任务：提交 → 轮询 → 下载）。"""
+    name = "dashscope"
+
+    def __init__(self, project, cfg: dict):
+        c = cfg.get("dashscope") or {}
+        self.base = (c.get("base_url") or "https://dashscope.aliyuncs.com").rstrip("/")
+        self.model = c.get("model") or "wanx2.1-t2i-turbo"
+        self.size = c.get("size") or ""
+        self.parameters = c.get("parameters") or {}
+        self.poll = float(c.get("poll_interval", 3))
+        self.timeout = float(c.get("timeout", 300))
+        env = c.get("api_key_env") or "DASHSCOPE_API_KEY"
+        self.key = c.get("api_key") or os.environ.get(env, "")
+        if not self.key:
+            raise ManjuError(f"没有找到阿里云百炼 API Key：请设置环境变量 {env}。")
+
+    def _explain(self, code: str, message: str) -> ManjuError:
+        text = f"{code} {message}".strip()
+        if "DataInspection" in code or "inappropriate" in message.lower() or "IPInfringement" in code:
+            return ContentRejected(text)
+        for k, hint in DASHSCOPE_ERRORS.items():
+            if code == k or code.startswith(k + "."):
+                return ManjuError(f"通义万相出图失败：{hint}（{text}）")
+        low = message.lower()
+        if "model" in low and ("not exist" in low or "not found" in low):
+            return ManjuError(f"通义万相出图失败：模型 {self.model} 不存在或不可用，请检查 image.dashscope.model（{text}）")
+        return ManjuError(f"通义万相出图失败：{text}")
+
+    def generate(self, prompt, negative, size, seed, out: Path, refs=None, meta=None) -> None:
+        auth = {"Authorization": f"Bearer {self.key}"}
+        payload = {
+            "model": self.model,
+            "input": {"prompt": prompt[:800], "negative_prompt": (negative or "")[:500]},
+            "parameters": {"size": self.size or f"{size[0]}*{size[1]}", "n": 1, "seed": int(seed) % 2147483647,
+                           "prompt_extend": False, "watermark": False, **self.parameters},
+        }
+        try:
+            resp = http.retry(lambda: http.post_json(
+                f"{self.base}/api/v1/services/aigc/text2image/image-synthesis", payload,
+                headers={**auth, "X-DashScope-Async": "enable"}, timeout=60), what="提交出图任务")
+        except http.HTTPStatusError as e:
+            body = e.json()
+            raise self._explain(body.get("code", f"HTTP {e.status}"), body.get("message", e.body[:200])) from e
+        task_id = (resp.get("output") or {}).get("task_id")
+        if not task_id:
+            raise ManjuError(f"通义万相没有返回任务号：{str(resp)[:300]}")
+
+        deadline = time.time() + self.timeout
+        while True:
+            time.sleep(self.poll)
+            r = http.retry(lambda: http.get_json(f"{self.base}/api/v1/tasks/{task_id}", headers=auth, timeout=30),
+                           what="查询出图进度")
+            o = r.get("output") or {}
+            status = o.get("task_status")
+            if status == "SUCCEEDED":
+                results = o.get("results") or []
+                urls = [x["url"] for x in results if isinstance(x, dict) and x.get("url")]
+                if not urls:
+                    bad = next((x for x in results if isinstance(x, dict) and x.get("code")), {})
+                    raise self._explain(bad.get("code", "NoResult"), bad.get("message", "任务成功但没有返回图片"))
+                break
+            if status in ("FAILED", "CANCELED", "UNKNOWN"):
+                raise self._explain(o.get("code", status), o.get("message", ""))
+            if time.time() > deadline:
+                raise ManjuError(f"通义万相出图超时（{self.timeout:.0f} 秒），任务号 {task_id}")
+
+        _, _, raw = http.retry(lambda: http.request("GET", urls[0], timeout=120), what="下载图片")
         out.parent.mkdir(parents=True, exist_ok=True)
         tmp = out.with_suffix(".download")
         tmp.write_bytes(raw)
